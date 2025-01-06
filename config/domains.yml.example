@@ -1,0 +1,203 @@
+# https://github.com/v2fly/domain-list-community/blob/master/data/discord
+
+reddit:
+  - "reddit.com"
+  - "www.reddit.com"
+  - redd.it
+  - reddit.app.link
+  - reddit.com
+  - redditblog.com
+  - reddithelp.com
+  - redditinc.com
+  - redditmail.com
+  - redditmedia.com
+  - redditspace.com
+  - redditstatic.com
+  - redditstatus.com
+
+# https://gist.github.com/GodderE2D/26a39d654cfd2f2ba225bae6f1fa2d7a
+# https://gist.github.com/InvalidLenni/8699c39360e721143f18d95b14113288
+discord:
+  - "discord.com"
+  - "discord.gg"
+  - "discord.media"
+  - "discordapp.net"
+  - "discordcdn.com"
+  - "discordstatus.com"
+  - "discordpartygames.com"
+  - "discord-activities.com"
+  - "discordactivities.com"
+  - "discordsays.com"
+  - "discordapp.io"
+  - dis.gd
+  - discord.co
+  - discord.com
+  - discord.design
+  - discord.dev
+  - discord.gg
+  - discord.gift
+  - discord.gifts
+  - discord.media
+  - discord.new
+  - discord.store
+  - discord.tools
+  - discord-activities.com
+  - discordactivities.com
+  - discordapp.com
+  - discordapp.net
+  - discordmerch.com
+  - discordpartygames.com
+  - discordsays.com
+  - discordstatus.com
+
+rutracker:
+  - "rutracker.org"
+  - "static.rutracker.cc"
+  - "feed.rutracker.cc"
+  - "rutracker.wiki"
+
+kinopub:
+  - "kino.pub"
+  - "86feaca6-c052-436f-8b78-99cea0ec1571.ams-static-14.cdntogo.net"
+  - "ams-static-14.cdntogo.net"
+  - "172.67.156.20"
+
+notion:
+  - "notion.com"
+
+redshieldvpn:
+  - "redshieldvpn.com"
+
+ibkr:
+  - "ibkr.com"
+  - "www.ibkr.com"
+  - "interactivebrokers.com"
+  - "www.interactivebrokers.com"
+  - "interactivebrokers.co.uk"
+  - "www.interactivebrokers.co.uk"
+  - "interactivebrokers.com.hk"
+  - "www.interactivebrokers.com.hk"
+
+jetbrains:
+  - "jetbrains.com"
+  - "www.jetbrains.com"
+  - "download.jetbrains.com"
+  - "download-cdn.jetbrains.com"
+  - "resources.jetbrains.com"
+  - "plugins.jetbrains.com"
+  - "sales.jetbrains.com"
+  - "52.85.49.0/24"
+  - "18.239.50.0/24"
+  - "18.239.18.0/24"
+  - "18.154.63.0/24"
+  - "18.66.248.0/24"
+  - "18.65.39.0/24"
+  - "18.64.79.0/24"
+
+sentry:
+  - "sentry.io"
+  - "www.sentry.io"
+  - "docs.sentry.io"
+  - "sentry.dev"
+
+plex:
+  - "plex.tv"
+  - "www.plex.tv"
+  - "watch.plex.tv"
+
+fb:
+  - "instagram.com"
+  - "www.instagram.com"
+  - "static.cdninstagram.com"
+  - "facebook.com"
+  - "gateway.facebook.com"
+  - "fb.com"
+  - "static.xx.fbcdn.net"
+  - "scontent-arn2-1.cdninstagram.com"
+  - "graph.instagram.com"
+  - "edge-chat.instagram.com"
+  - "whatsapp.com"
+
+twitter:
+  - "twitter.com"
+  - "x.com"
+  - "abs.twimg.com"
+  - "abs-0.twimg.com"
+
+tuya:
+  - "tuya.com"
+  - "www.tuya.com"
+  - "developer.tuya.com"
+
+linkedin:
+  - "linkedin.com"
+  - "www.linkedin.com"
+
+spotify:
+  - "spotify.com"
+  - "www.spotify.com"
+
+# https://gist.github.com/marshyyyy/825c98f090dd4c3c1c71bf82e75a477e
+youtube:
+  - "youtube.com"
+  - "www.youtube.com"
+  - "googlevideo.com"
+  - "rr6---sn-4pvgq-n8vs.googlevideo.com"
+  - "youtu.be"
+  - yt.be
+  - ytimg.com
+  - youtube.googleapis.com
+  - youtube-ui.l.google.com
+  - ggpht.com
+  - googlevideo.com
+  - wide-youtube.l.google.com
+  - withyoutube.com
+  - ytimg.com
+  - ggpht.com
+  - youtubei.googleapis.com
+  - yt4.ggpht.com
+  - ytimg.l.google.com
+  - nhacmp3youtube.com
+  - googleusercontent.com
+  - googleapis.com
+  - gstatic.com
+  - android.googleapis.com
+  - "216.239.32.0/19"
+  - "216.58.214.0/24"
+  - "216.58.208.0/24"
+  - "216.58.192.0/19"
+  - "209.85.128.0/17"
+  - "208.117.224.0/19"
+  - "208.65.152.0/22"
+  - "207.223.160.0/20"
+  - "199.223.232.0/21"
+  - "64.233.0.0/16"
+  - "74.125.0.0/16"
+  - "88.218.0.0/16"
+  - "142.250.0.0/16"
+  - "142.251.36.0/24"
+  - "142.251.39.0/24"
+  - "172.217.0.0/16"
+  - "173.194.0.0/16"
+  - "185.53.0.0/16"
+  - "80.77.0.0/16"
+
+medium:
+  - "medium.com"
+
+sidekiq:
+  - "enterprise.contribsys.com"
+
+random:
+  - "nyse.com"
+  - "www.nyse.com"
+  - "cash.app"
+
+homeconnect:
+  - "home-connect.com"
+  - "www.home-connect.com"
+  - "api.home-connect.com"
+  - "api-rus.home-connect.com"
+  - "services.home-connect.com"
+  - "singlekey-id.com"
+  - "www.singlekey-id.com"
