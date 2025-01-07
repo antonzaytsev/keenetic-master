@@ -10,8 +10,8 @@
    2. В локальной директории запустить `asdf install ruby`
 1. Скопировать несколько файлов
    ```bash
-   cp config/domains.yml.example cp config/domains.yml && \
-   cp .env.example cp .env
+   cp config/domains.yml.example config/domains.yml && \
+   cp .env.example .env
    ```
 1. В файле `config/domains.yml` прописать группы доменов. Имя группы любое (по нему можно обновить ip адреса). В значения можно домены и ip адреса указывать.
 1. В файле `.env` указать данные для keenetic (логин, пароль, хост и интерфейс для VPN)
