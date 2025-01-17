@@ -1,3 +1,4 @@
 .env
 config/cookie
 config/domains.yml
+tmp

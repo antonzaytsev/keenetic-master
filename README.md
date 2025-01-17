@@ -2,7 +2,24 @@
 
 Скрипт для обновления списка роутов в Keenetic для определенных доменов.
 
-## Как настроить
+## Как запустить локально с помощью докер образа
+
+1. Создать папку локально, к примеру `./keenetic-master`
+1. Зайти в папку
+1. Создать файл docker-compose.yml командой `wget https://raw.githubusercontent.com/antonzaytsev/keenetic-master/refs/heads/main/docker-compose.yml`
+1. Создать файл domains.yml, можно самому с нуля, а можно стянуть шаблон `wget https://raw.githubusercontent.com/antonzaytsev/keenetic-master/refs/heads/main/config/domains.yml.example -O domains.yml`
+1. Создать файл .env с данными доступа к роутеру (можно скопировать образец `wget https://raw.githubusercontent.com/antonzaytsev/keenetic-master/refs/heads/main/.env.example -O .env`) или воспользоваться примером ниже
+```env
+KEENETIC_LOGIN: admin
+KEENETIC_PASSWORD: admin
+KEENETIC_HOST: 192.168.0.1
+KEENETIC_VPN_INTERFACE: Wireguard0
+DOMAINS_FILE: ./domains.yml
+```
+1. Запустить `docker compose up` - запустится процесс и раз в час будет обходить все группы из файла domains.yml 
+   
+
+## Как запустить локально с кодом из git
 
 1. Вытянуть репу локально
 1. Поставить ruby, лучшего всего через asdf

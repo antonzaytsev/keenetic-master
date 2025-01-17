@@ -1,0 +1,15 @@
+name: keenetic-master
+services:
+  app:
+    build:
+      context: .
+      args:
+        RUBY_VERSION: '3.4.1'
+    image: antonzaytsev/keenetic_master:1.0.0
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./domains.yml:/app/domains.yml
+      - ./application.log:/app/tmp/application.log
+    env_file: ".env"
+    command: ruby crontab.rb
