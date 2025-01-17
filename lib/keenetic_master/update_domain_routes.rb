@@ -1,11 +1,13 @@
 require 'yaml'
 
 class KeeneticMaster
-  class UpdateDomainRoutes < ARouteRequest
+  class UpdateDomainRoutes < BaseClass
     PATTERN = "[auto:{website}]"
     GITHUB_META_URL = 'https://api.github.com/meta'
 
     def call(website)
+      start = Time.now
+
       existing_routes = retrieve_existing_routes(website)
       eventual_routes = routes_to_exist(website)
 
@@ -21,7 +23,8 @@ class KeeneticMaster
       #   AddRoute.call(**params)
       # end
       AddRoutes.call(to_add) if to_add.any?
-      # AddRoutes.call(eventual_routes)
+
+      logger.info("Successfully processed `#{website}`. Added: #{to_add.size}, Deleted: #{to_delete.size}, Eventually: #{eventual_routes.size}. Time: #{(Time.now - start).round(2)}s")
 
       Success(added: to_add.size, deleted: to_delete.size, eventually: eventual_routes.size)
     end
@@ -45,7 +48,7 @@ class KeeneticMaster
     def routes_to_exist(website)
       return github_ips if website == 'github'
 
-      domains_db = YAML.load_file('./config/domains.yml')
+      domains_db = YAML.load_file(ENV.fetch('DOMAINS_FILE'))
       domains = domains_db[website].uniq
       return if domains.nil?
 

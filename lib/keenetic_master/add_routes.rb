@@ -1,5 +1,7 @@
+require_relative 'mutate_route_request'
+
 class KeeneticMaster
-  class AddRoutes < AaMutateRouteRequest
+  class AddRoutes < MutateRouteRequest
     def call(routes, interface: "Wireguard0")
       return Success(empty: true) if routes.empty?
 

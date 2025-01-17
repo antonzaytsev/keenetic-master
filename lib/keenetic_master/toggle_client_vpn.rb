@@ -1,7 +1,5 @@
-require_relative 'a_route_request'
-
 class KeeneticMaster
-  class ToggleClientVpn < ARouteRequest
+  class ToggleClientVpn < BaseClass
     def call(client_name)
       data = load_data
       return Failure(data) if data.failure?

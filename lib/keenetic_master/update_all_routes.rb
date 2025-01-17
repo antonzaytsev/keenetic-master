@@ -1,7 +1,7 @@
 class KeeneticMaster
-  class UpdateAllRoutes < ARouteRequest
+  class UpdateAllRoutes < BaseClass
     def call
-      websites = YAML.load_file('./config/domains.yml').keys
+      websites = YAML.load_file(ENV.fetch('DOMAINS_FILE')).keys
       websites.each do |website|
         UpdateDomainRoutes.call(website)
       end

@@ -1,7 +1,5 @@
-require 'typhoeus'
-
 class KeeneticMaster
-  class AaMutateRouteRequest < ARouteRequest
+  class MutateRouteRequest < BaseClass
     private
 
     def process_host(route, host:, network:, mask:)
@@ -16,6 +14,20 @@ class KeeneticMaster
       else
         route[:network] = network
         route[:mask] = mask
+      end
+    end
+
+    def process_route(route)
+      if route[:host] && route[:host] =~ /\//
+        route[:network], cidr_notation = route[:host].split('/')
+        route[:mask] = MASKS.fetch(cidr_notation)
+        route.delete(:host)
+      end
+
+      if route[:host]
+        route.slice(:host)
+      else
+        route.slice(:network, :mask)
       end
     end
 
@@ -39,13 +51,11 @@ class KeeneticMaster
       response = Client.new.post_rci(body)
       return Failure(request_failure: response) if response.code != 200
 
+      # TODO: modify this part to check if all provided rows are successfully processed
       result = JSON.parse(response.body).detect { |el| el['ip'] }.dig('ip', 'route', 'status', 0)
-
       if result['status'] == 'error'
         return Failure(result['status'] => result['message'])
       end
-
-      # todo modify this to return message about all affected rows
       Success(message: result['message'])
     end
   end

@@ -1,5 +1,7 @@
+require_relative 'mutate_route_request'
+
 class KeeneticMaster
-  class AddRoute < AaMutateRouteRequest
+  class AddRoute < MutateRouteRequest
     def call(comment:, host: nil, network: nil, mask: nil, interface: nil)
       interface ||= ENV['KEENETIC_VPN_INTERFACE']
       if interface.blank?

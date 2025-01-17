@@ -4,6 +4,7 @@ Bundler.require(:default)
 require 'dotenv/load'
 require "active_support/core_ext/object"
 require "active_support/json"
+require 'logger'
 
 def load_files
   root_dir = File.expand_path('../', __dir__)

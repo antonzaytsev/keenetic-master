@@ -2,7 +2,7 @@ require 'typhoeus'
 require 'json'
 
 class KeeneticMaster
-  class GetAllRoutes < ARouteRequest
+  class GetAllRoutes < BaseClass
     def call
       body = [
         # {"whoami": {}},

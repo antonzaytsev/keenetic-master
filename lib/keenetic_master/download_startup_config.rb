@@ -1,5 +1,5 @@
 class KeeneticMaster
-  class DownloadStartupConfig < ARouteRequest
+  class DownloadStartupConfig < BaseClass
     PATH = 'ci/startup-config.txt'
 
     def call

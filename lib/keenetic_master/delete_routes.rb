@@ -1,16 +1,16 @@
+require_relative 'mutate_route_request'
+
 class KeeneticMaster
-  class DeleteRoutes < AaMutateRouteRequest
+  class DeleteRoutes < MutateRouteRequest
     def call(routes)
       return Success(empty: true) if routes.empty?
 
-      routes.each do |route|
-        route["no"] = true
-
-        process_host(route, host: route['host'], network: route['host'], mask: route['host'])
+      modified_routes = routes.map do |route|
+        process_route(route).merge(comment: route[:comment], no: true)
       end
 
-      response = Client.new.post_rci(build_body_routes(routes))
-      Failure(response) if response.code != 200
+      response = Client.new.post_rci(build_body_routes(modified_routes))
+      return Failure(response) if response.code != 200
 
       Success()
     end
