@@ -11,6 +11,8 @@ class KeeneticMaster
       existing_routes = retrieve_existing_routes(website)
       eventual_routes = routes_to_exist(website)
 
+      # binding.pry
+
       to_delete = (existing_routes - eventual_routes)
       # to_delete.each do |params|
       #   DeleteRoute.call(**params.slice(:host, :network, :mask))
@@ -41,7 +43,7 @@ class KeeneticMaster
           row.delete('host')
         end
 
-        row.slice('network', 'mask', 'comment').transform_keys(&:to_sym)
+        row.slice('network', 'mask', 'comment', 'interface').transform_keys(&:to_sym)
       end
     end
 
@@ -51,6 +53,12 @@ class KeeneticMaster
       domains_db = YAML.load_file(ENV.fetch('DOMAINS_FILE'))
       domains = domains_db[website].uniq
       return if domains.nil?
+
+      interface = ENV['KEENETIC_VPN_INTERFACE']
+      if interface.blank?
+        logger.info "Используется дефолтный интерфейс для VPN: 'Wireguard0'"
+        interface = 'Wireguard0'
+      end
 
       to_add = []
 
@@ -73,6 +81,7 @@ class KeeneticMaster
             comment:,
             network:,
             mask:,
+            interface:
           }
 
           if to_add.none? { |el| el[:network] == candidate[:network] && el[:mask] == candidate[:mask] }
@@ -91,6 +100,7 @@ class KeeneticMaster
             comment:,
             network: address.address.to_s.sub(/\.\d+$/, '.0'),
             mask: '255.255.255.0',
+            interface:
           }
           next if to_add.any? { |el| el[:network] == candidate[:network] && el[:mask] == candidate[:mask] }
 

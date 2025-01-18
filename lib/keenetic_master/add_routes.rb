@@ -2,12 +2,11 @@ require_relative 'mutate_route_request'
 
 class KeeneticMaster
   class AddRoutes < MutateRouteRequest
-    def call(routes, interface: "Wireguard0")
+    def call(routes)
       return Success(empty: true) if routes.empty?
 
       routes.each do |route|
         route[:gateway] ||= ''
-        route[:interface] ||= interface
         route[:auto] = true unless route.key?(:auto)
         route[:reject] = false unless route.key?(:reject)
 
