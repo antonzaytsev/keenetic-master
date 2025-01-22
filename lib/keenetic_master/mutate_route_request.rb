@@ -5,7 +5,7 @@ class KeeneticMaster
     def process_host(route, host:, network:, mask:)
       if host && host =~ /\//
         network, cidr_notation = host.split('/')
-        mask = MASKS.fetch(cidr_notation)
+        mask = Constants::MASKS.fetch(cidr_notation)
         host = nil
       end
 
@@ -20,7 +20,7 @@ class KeeneticMaster
     def process_route(route)
       if route[:host] && route[:host] =~ /\//
         route[:network], cidr_notation = route[:host].split('/')
-        route[:mask] = MASKS.fetch(cidr_notation)
+        route[:mask] = Constants::MASKS.fetch(cidr_notation)
         route.delete(:host)
       end
 

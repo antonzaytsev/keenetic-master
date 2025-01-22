@@ -39,7 +39,7 @@ class KeeneticMaster
 
         if row['host']
           row['network'] = row['host']
-          row['mask'] = MASKS['32']
+          row['mask'] = Constants::MASKS['32']
           row.delete('host')
         end
 
@@ -68,7 +68,7 @@ class KeeneticMaster
           if domain =~ /\//
             comment = "#{PATTERN.sub('{website}', website)} Direct Range"
             network, cidr_notation = domain.split('/')
-            mask = MASKS.fetch(cidr_notation)
+            mask = Constants::MASKS.fetch(cidr_notation)
           elsif domain =~ Resolv::IPv4::Regex
             comment = "#{PATTERN.sub('{website}', website)} Direct IP"
             network = domain.sub(/\.\d+$/, '.0')
@@ -122,9 +122,9 @@ class KeeneticMaster
         network, cidr_notation = ip_range.split('/')
         if cidr_notation == '32'
           network = network.sub(/\d+$/, '0')
-          mask = MASKS.fetch('24')
+          mask = Constants::MASKS.fetch('24')
         else
-          mask = MASKS.fetch(cidr_notation)
+          mask = Constants::MASKS.fetch(cidr_notation)
         end
 
         next if to_add.any? { |el| el[:network] == network && el[:mask] == mask }
