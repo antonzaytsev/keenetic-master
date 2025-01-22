@@ -8,6 +8,7 @@ services:
     image: antonzaytsev/keenetic_master:1.0.0
     stdin_open: true
     tty: true
+    restart: always
     volumes:
       - ./domains.yml:/app/domains.yml
       - ./application.log:/app/tmp/application.log
