@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG RUBY_VERSION
+ARG RUBY_VERSION=3.4.1
 ARG DISTRO_NAME=bookworm
 
 FROM ruby:$RUBY_VERSION-slim-$DISTRO_NAME
@@ -27,13 +27,17 @@ ENV PATH /app/bin:$PATH
 # Create a directory for the app code
 RUN mkdir -p /app
 WORKDIR /app
-COPY . /app
-RUN rm -rf /app/config/cookie && rm -rf /app/config/domains.yml && rm -rf /app/.env
+
+COPY Gemfile Gemfile.lock /app/
 
 # Upgrade RubyGems and install the latest Bundler version
 RUN gem update --system && \
     gem install bundler && \
     bundle
+
+COPY crontab.rb /app/
+COPY config /app/config
+COPY lib /app/lib
 
 # Use Bash as the default command
 CMD ["/bin/bash"]
