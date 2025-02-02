@@ -9,9 +9,11 @@ class KeeneticMaster
 
     def interface
       response = Client.get('rci/show/interface')
-      # Rails.logger.error("Unsucessful response #{response.code}") if response.code != 200
+      if response.code != 200
+        return Dry::Monads::Result::Failure.new(message: "Неуспешный запрос на получение интерфейсов. Код #{response.code}")
+      end
 
-      # JSON.parse(response.body)
+      Dry::Monads::Result::Success.new(JSON.parse(response.body))
     end
   end
 end

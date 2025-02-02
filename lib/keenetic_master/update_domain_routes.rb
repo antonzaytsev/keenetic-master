@@ -5,24 +5,16 @@ class KeeneticMaster
     PATTERN = "[auto:{website}]"
     GITHUB_META_URL = 'https://api.github.com/meta'
 
-    def call(group_name, interface = nil)
+    def call(group_name, default_interface = nil)
       start = Time.now
 
-      interface = interface.presence || ENV['KEENETIC_VPN_INTERFACE']
-      if interface.blank?
-        logger.info "Используется дефолтный интерфейс для VPN: 'Wireguard0'"
-        interface = 'Wireguard0'
-      end
-
       existing_routes = retrieve_existing_routes(group_name)
-      eventual_routes = routes_to_exist(group_name, interface)
-
+      eventual_routes = routes_to_exist(group_name, default_interface)
       to_delete = (existing_routes - eventual_routes)
       DeleteRoutes.call(to_delete.map { |el| el.slice(:network, :mask) })
-
       to_add = (eventual_routes - existing_routes)
       add_result = AddRoutes.call(to_add) if to_add.any?
-      if add_result.failure?
+      if add_result&.failure?
         return add_result
       end
 
@@ -56,16 +48,23 @@ class KeeneticMaster
       return [] if domains.nil?
 
       domain_mask = ENV.fetch('DOMAINS_MASK', '32').to_s
+      interface = interface.presence || ENV['KEENETIC_VPN_INTERFACE'] || ENV['KEENETIC_VPN_INTERFACES']
 
       if domains.is_a?(Hash)
         settings_mask = domains.dig('settings', 'mask')
         domain_mask = settings_mask.to_s if settings_mask.present?
 
-        settings_interface = domains.dig('settings', 'interface')
+        settings_interface = domains.dig('settings', 'interfaces')
         interface = settings_interface if settings_interface.present?
 
         domains = domains['domains']
       end
+
+      if interface.blank?
+        logger.info "Используется дефолтный интерфейс для VPN: 'Wireguard0'"
+        interface = 'Wireguard0'
+      end
+      interfaces = interface.split(',').map { |interface| correct_interface_id(interface.strip)}
 
       to_add = []
 
@@ -85,16 +84,18 @@ class KeeneticMaster
             raise 'unsupported'
           end
 
-          candidate = {
-            comment:,
-            network:,
-            mask:,
-            interface:
-          }
+          interfaces.each do |interface|
+            candidate = {
+              comment:,
+              network:,
+              mask:,
+              interface:
+            }
 
-          next if to_add.any? { |el| el[:network] == candidate[:network] && el[:mask] == candidate[:mask] }
+            next if to_add.any? { |el| el.slice(:network, :mask, :interface) == candidate.slice(:network, :mask, :interface) }
 
-          to_add << candidate
+            to_add << candidate
+          end
         else
           comment = "#{PATTERN.sub('{website}', website)} #{domain}"
 
@@ -111,15 +112,18 @@ class KeeneticMaster
               else
                 address.address.to_s
               end
-            candidate = {
-              comment:,
-              network:,
-              mask:,
-              interface:
-            }
-            next if to_add.any? { |el| el[:network] == candidate[:network] && el[:mask] == candidate[:mask] }
 
-            to_add << candidate
+            interfaces.each do |interface|
+              candidate = {
+                comment:,
+                network:,
+                mask:,
+                interface:
+              }
+              next if to_add.any? { |el| el.slice(:network, :mask, :interface) == candidate.slice(:network, :mask, :interface) }
+
+              to_add << candidate
+            end
           end
         end
       end
@@ -153,6 +157,22 @@ class KeeneticMaster
       end
 
       to_add
+    end
+
+    def correct_interface_id(interface)
+      return interface if existing_interfaces.failure?
+
+      existing_interfaces_list = existing_interfaces.value!
+      return interface if existing_interfaces_list.key?(interface)
+
+      existing_interface = existing_interfaces_list.values.detect { |data| data['description'] == interface }
+      return interface if existing_interface.nil?
+
+      existing_interface['id']
+    end
+
+    def existing_interfaces
+      @existing_interfaces ||= KeeneticMaster.interface
     end
   end
 end

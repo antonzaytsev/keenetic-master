@@ -3,8 +3,7 @@ require_relative 'mutate_route_request'
 class KeeneticMaster
   class AddRoute < MutateRouteRequest
     def call(comment:, host: nil, network: nil, mask: nil, interface: nil)
-      interface ||= ENV['KEENETIC_VPN_INTERFACE']
-      if interface.blank?
+      if interface.nil?
         logger.info "Используется дефолтный интерфейс для VPN: 'Wireguard0'"
         interface = 'Wireguard0'
       end
