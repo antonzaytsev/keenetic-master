@@ -13,8 +13,10 @@
 KEENETIC_LOGIN: admin
 KEENETIC_PASSWORD: admin
 KEENETIC_HOST: 192.168.0.1
-KEENETIC_VPN_INTERFACE: Wireguard0
-DOMAINS_FILE: ./domains.yml
+KEENETIC_VPN_INTERFACES: Wireguard0,Finland
+DOMAINS_FILE: ./config/domains.yml
+DNS_SERVERS: 1.1.1.1,8.8.8.8
+DOMAINS_MASK: 32
 ```
 1. Запустить `docker compose up` - запустится процесс и раз в час будет обходить все группы из файла domains.yml 
    
