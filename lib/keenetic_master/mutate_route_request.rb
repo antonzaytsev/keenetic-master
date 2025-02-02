@@ -54,7 +54,7 @@ class KeeneticMaster
       # TODO: modify this part to check if all provided rows are successfully processed
       result = JSON.parse(response.body).detect { |el| el['ip'] }.dig('ip', 'route', 'status', 0)
       if result['status'] == 'error'
-        return Failure(result['status'] => result['message'])
+        return Failure(message: "Ошибка добавления записей. #{result['message']}")
       end
       Success(message: result['message'])
     end
