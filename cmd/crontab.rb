@@ -1,9 +1,11 @@
-require_relative 'config/application'
+require_relative '../config/application'
+
+logger = BaseClass.new.send(:logger, STDOUT)
 
 loop do
-  p "Начато обновление всех групп и их доменов из #{ENV.fetch('DOMAINS_FILE')}"
+  logger.info "Начато обновление всех групп и их доменов из #{ENV.fetch('DOMAINS_FILE')}"
   KeeneticMaster::UpdateAllRoutes.call
 
-  p "Все группы обновлены успешно. Перерыв 1 час до следующей проверки."
+  logger.info "Все группы обновлены успешно. Перерыв 1 час до следующей проверки."
   sleep 60*60
 end

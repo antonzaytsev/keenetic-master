@@ -7,10 +7,9 @@ class BaseClass
 
   private
 
-  def logger
+  def logger(log_file_path = 'tmp/application.log')
     return @logger if @logger
 
-    log_file_path = 'tmp/application.log'
     @logger = Logger.new(log_file_path)
     @logger.level = Logger::DEBUG
     @logger.formatter = proc do |severity, datetime, progname, msg|

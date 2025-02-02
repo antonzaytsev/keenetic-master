@@ -36,4 +36,4 @@ DOMAINS_FILE: ./domains.yml
 
 ## Как использовать
 
-1. Проще всего запустить `ruby crontab.rb` - раз в час будет обновлять все домены из `config/domains.yml`.
+1. Проще всего запустить `ruby cmd/crontab.rb` - раз в час будет обновлять все домены из `config/domains.yml`.

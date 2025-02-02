@@ -13,4 +13,4 @@ services:
       - ./domains.yml:/app/domains.yml
       - ./application.log:/app/tmp/application.log
     env_file: ".env"
-    command: ruby crontab.rb
+    command: ruby cmd/crontab.rb

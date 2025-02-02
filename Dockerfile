@@ -35,7 +35,7 @@ RUN gem update --system && \
     gem install bundler && \
     bundle
 
-COPY crontab.rb /app/
+COPY cmd /app/cmd
 COPY config /app/config
 COPY lib /app/lib
 
