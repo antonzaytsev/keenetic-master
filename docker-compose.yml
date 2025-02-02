@@ -10,7 +10,7 @@ services:
     tty: true
     restart: always
     volumes:
-      - ./domains.yml:/app/domains.yml
-      - ./application.log:/app/tmp/application.log
+      - ./config/domains.yml:/app/config/domains.yml
+      - ./tmp/application.log:/app/tmp/application.log
     env_file: ".env"
     command: ruby cmd/crontab.rb
