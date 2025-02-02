@@ -5,30 +5,31 @@ class KeeneticMaster
     PATTERN = "[auto:{website}]"
     GITHUB_META_URL = 'https://api.github.com/meta'
 
-    def call(website)
+    def call(group_name, interface = nil)
       start = Time.now
 
-      existing_routes = retrieve_existing_routes(website)
-      eventual_routes = routes_to_exist(website)
+      interface = interface.presence || ENV['KEENETIC_VPN_INTERFACE']
+      if interface.blank?
+        logger.info "Используется дефолтный интерфейс для VPN: 'Wireguard0'"
+        interface = 'Wireguard0'
+      end
 
-      # binding.pry
+      existing_routes = retrieve_existing_routes(group_name)
+      eventual_routes = routes_to_exist(group_name, interface)
 
       to_delete = (existing_routes - eventual_routes)
-      # to_delete.each do |params|
-      #   DeleteRoute.call(**params.slice(:host, :network, :mask))
-      # end
       DeleteRoutes.call(to_delete.map { |el| el.slice(:network, :mask) })
-      # DeleteRoutes.call(to_delete.map { |el| el.slice(:host, :network, :mask) })
 
       to_add = (eventual_routes - existing_routes)
-      # to_add.each do |params|
-      #   AddRoute.call(**params)
-      # end
-      AddRoutes.call(to_add) if to_add.any?
+      add_result = AddRoutes.call(to_add) if to_add.any?
+      if add_result.failure?
+        return add_result
+      end
 
-      logger.info("Successfully processed `#{website}`. Added: #{to_add.size}, Deleted: #{to_delete.size}, Eventually: #{eventual_routes.size}. Time: #{(Time.now - start).round(2)}s")
+      message = "Успешно обработана группа `#{group_name}`. Добавлено: #{to_add.size}, удалено: #{to_delete.size}, в итоге: #{eventual_routes.size}. Время: #{(Time.now - start).round(2)}s"
+      logger.info(message)
 
-      Success(added: to_add.size, deleted: to_delete.size, eventually: eventual_routes.size)
+      Success(added: to_add.size, deleted: to_delete.size, eventually: eventual_routes.size, message:)
     end
 
     private
@@ -47,23 +48,30 @@ class KeeneticMaster
       end
     end
 
-    def routes_to_exist(website)
+    def routes_to_exist(website, interface)
       return github_ips if website == 'github'
 
       domains_db = YAML.load_file(ENV.fetch('DOMAINS_FILE'))
-      domains = domains_db[website].uniq
-      return if domains.nil?
+      domains = domains_db[website]
+      return [] if domains.nil?
 
-      interface = ENV['KEENETIC_VPN_INTERFACE']
-      if interface.blank?
-        logger.info "Используется дефолтный интерфейс для VPN: 'Wireguard0'"
-        interface = 'Wireguard0'
+      domain_mask = ENV.fetch('DOMAINS_MASK', '32').to_s
+
+      if domains.is_a?(Hash)
+        settings_mask = domains.dig('settings', 'mask')
+        domain_mask = settings_mask.to_s if settings_mask.present?
+
+        settings_interface = domains.dig('settings', 'interface')
+        interface = settings_interface if settings_interface.present?
+
+        domains = domains['domains']
       end
 
       to_add = []
 
-      dns_resolver = Resolv::DNS.new(nameserver: ['1.1.1.1', '8.8.8.8'])
-      domains.each do |domain|
+      dns_servers = ENV.fetch('DNS_SERVERS', nil)&.split(',') || ['1.1.1.1', '8.8.8.8']
+      dns_resolvers = dns_servers.map { |nameserver| Resolv::DNS.new(nameserver: ) }
+      domains.uniq.each do |domain|
         if domain =~ /^[\d.\/]+$/
           if domain =~ /\//
             comment = "#{PATTERN.sub('{website}', website)} Direct Range"
@@ -84,27 +92,35 @@ class KeeneticMaster
             interface:
           }
 
-          if to_add.none? { |el| el[:network] == candidate[:network] && el[:mask] == candidate[:mask] }
-            to_add << candidate
-          end
-        end
-
-        comment = "#{PATTERN.sub('{website}', website)} #{domain}"
-
-        addresses = dns_resolver.getresources(domain, Resolv::DNS::Resource::IN::A)
-        addresses.each do |address|
-          addr = address.address.to_s
-          next if addr =~ /^127\./
-
-          candidate = {
-            comment:,
-            network: address.address.to_s.sub(/\.\d+$/, '.0'),
-            mask: '255.255.255.0',
-            interface:
-          }
           next if to_add.any? { |el| el[:network] == candidate[:network] && el[:mask] == candidate[:mask] }
 
           to_add << candidate
+        else
+          comment = "#{PATTERN.sub('{website}', website)} #{domain}"
+
+          mask = Constants::MASKS.fetch(domain_mask)
+
+          addresses = dns_resolvers.flat_map { |resolver| resolver.getresources(domain, Resolv::DNS::Resource::IN::A) }
+          addresses.each do |address|
+            addr = address.address.to_s
+            next if addr =~ /^127\./
+
+            network =
+              if domain_mask == '24'
+                address.address.to_s.sub(/\.\d+$/, '.0')
+              else
+                address.address.to_s
+              end
+            candidate = {
+              comment:,
+              network:,
+              mask:,
+              interface:
+            }
+            next if to_add.any? { |el| el[:network] == candidate[:network] && el[:mask] == candidate[:mask] }
+
+            to_add << candidate
+          end
         end
       end
 
