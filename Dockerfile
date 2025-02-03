@@ -35,9 +35,5 @@ RUN gem update --system && \
     gem install bundler && \
     bundle
 
-COPY cmd /app/cmd
-COPY config /app/config
-COPY lib /app/lib
-
 # Use Bash as the default command
 CMD ["/bin/bash"]
