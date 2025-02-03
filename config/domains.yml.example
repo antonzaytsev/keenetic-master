@@ -205,3 +205,13 @@ homeconnect:
   - "services.home-connect.com"
   - "singlekey-id.com"
   - "www.singlekey-id.com"
+
+github:
+  - "hooks"
+  - "web"
+  - "api"
+  - "git"
+  - "packages"
+  - "pages"
+  - "importer"
+  - "copilot"

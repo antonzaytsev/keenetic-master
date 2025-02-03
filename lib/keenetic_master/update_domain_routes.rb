@@ -43,10 +43,8 @@ class KeeneticMaster
     end
 
     def routes_to_exist(website, interface)
-      return github_ips if website == 'github'
-
-      domains_db = YAML.load_file(ENV.fetch('DOMAINS_FILE'))
-      domains = domains_db[website]
+      domains = YAML.load_file(ENV.fetch('DOMAINS_FILE'))[website]
+      domains = github_ips(domains) if website == 'github'
       return [] if domains.nil?
 
       domain_mask = ENV.fetch('DOMAINS_MASK', '32').to_s
@@ -133,32 +131,13 @@ class KeeneticMaster
       to_add
     end
 
-    def github_ips
-      comment = "#{PATTERN.sub('{website}', 'github')} from meta"
-
-      json = JSON.parse(Typhoeus.get(GITHUB_META_URL).body)
-      ip_ranges = json.slice('hooks', 'web', 'api', 'git', 'packages', 'pages', 'importer', 'copilot').values.flatten.reject { |el| el =~ /:/ }.uniq.sort
-
-      to_add = []
-      ip_ranges.each do |ip_range|
-        network, cidr_notation = ip_range.split('/')
-        if cidr_notation == '32'
-          network = network.sub(/\d+$/, '0')
-          mask = Constants::MASKS.fetch('24')
-        else
-          mask = Constants::MASKS.fetch(cidr_notation)
-        end
-
-        next if to_add.any? { |el| el[:network] == network && el[:mask] == mask }
-
-        to_add << {
-          comment:,
-          network: network,
-          mask: mask,
-        }
-      end
-
-      to_add
+    def github_ips(sections = [])
+      sections = ['hooks', 'web', 'api', 'git', 'packages', 'pages', 'importer', 'copilot'] if sections.blank?
+      github_meta_response = Typhoeus.get(GITHUB_META_URL).body
+      JSON
+        .parse(github_meta_response)
+        .slice(*sections)
+        .values.flatten.reject { |el| el =~ /:/ }.uniq.sort
     end
 
     def correct_interface_id(interface)
