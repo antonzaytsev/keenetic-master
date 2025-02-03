@@ -141,7 +141,7 @@ spotify:
 youtube:
   settings:
     mask: 24
-    interface: Wireguard0,[WG] Latvia
+    interfaces: Wireguard0,[WG] Latvia
   domains:
     - "youtube.com"
     - "www.youtube.com"
