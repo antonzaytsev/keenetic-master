@@ -29,13 +29,19 @@ class KeeneticMaster
       md5 = Digest::MD5.hexdigest("#{keenetic_credentials.fetch(:login)}:#{auth_response.headers["X-NDM-Realm"]}:#{keenetic_credentials.fetch(:password)}")
       sha = Digest::SHA256.hexdigest("#{auth_response.headers["X-NDM-Challenge"]}#{md5}")
 
-      make_request(
+      login_response = make_request(
         'auth',
         {
           login: keenetic_credentials.fetch(:login),
           password: sha
         }
       )
+
+      if login_response.code != 200
+        raise "Can't login. Code: #{login_response.code}"
+      end
+
+      login_response
     end
 
     def make_request(path, body = nil)
