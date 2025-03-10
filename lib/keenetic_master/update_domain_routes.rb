@@ -30,15 +30,15 @@ class KeeneticMaster
 
     def retrieve_existing_routes(website)
       GetAllRoutes.new.call.value![:message].filter_map do |row|
-        next if row['comment'] !~ /^#{Regexp.escape(PATTERN.sub('{website}', website))}/
+        next if row[:comment] !~ /^#{Regexp.escape(PATTERN.sub('{website}', website))}/
 
-        if row['host']
-          row['network'] = row['host']
-          row['mask'] = Constants::MASKS['32']
-          row.delete('host')
+        if row[:host]
+          row[:network] = row[:host]
+          row[:mask] = Constants::MASKS['32']
+          row.delete(:host)
         end
 
-        row.slice('network', 'mask', 'comment', 'interface').transform_keys(&:to_sym)
+        row.slice(:network, :mask, :comment, :interface)
       end
     end
 

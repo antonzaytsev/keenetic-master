@@ -19,7 +19,9 @@ class KeeneticMaster
       response = Client.post_rci(body)
       return Failure(request_failure: response) if response.code != 200
 
-      result = JSON.parse(response.body).dig(0, 'show', 'sc', 'ip', 'route')
+      result = JSON.parse(response.body).dig(0, 'show', 'sc', 'ip', 'route').map do |row|
+        row.transform_keys(&:to_sym)
+      end
       # result = JSON.parse(response.body).detect { |el| el['ip'] }.dig('ip', 'route', 'status', 0)
       #
       # if result['status'] == 'error'
