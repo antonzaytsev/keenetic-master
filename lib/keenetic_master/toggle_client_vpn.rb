@@ -1,14 +1,18 @@
 class KeeneticMaster
-  class ToggleClientVpn < BaseClass
-    def call(client_name)
-      data = load_data
-      return Failure(data) if data.failure?
+  class ToggleClientPolicy < BaseClass
+    def call(client_name, policy_name = "!WG1")
+      data_result = load_data
+      return Failure(data) if data_result.failure?
 
-      vpn_policy = find_policy(data.value!)
-      mac = find_client_mac(data.value!, client_name)
-      current_client_policy = find_client_policy(data.value!, mac)
+      data = data_result.value!
 
-      update_client_policy(mac, current_client_policy, vpn_policy)
+      vpn_policy = find_policy(data, policy_name)
+      client_mac = find_client_mac(data, client_name)
+      return client_mac if client_mac.failure?
+
+      current_client_policy = find_client_policy(data, client_mac.value!)
+
+      update_client_policy(client_mac.value!, current_client_policy, vpn_policy)
     end
 
     private
@@ -30,24 +34,27 @@ class KeeneticMaster
       Success({}.tap { |result| data.each { |el| result.deep_merge!(el) } })
     end
 
-    # пока что возвращаем статичное значение, возможно стоит выбрать значение из данных
-    def find_policy(data)
-      'Policy0'
+    def find_policy(data, policy_name)
+      policies = data.dig('show', 'sc', 'ip', 'policy')
+
+      policies.each do |policy_key, policy_data|
+        return policy_key if policy_data['description'] == policy_name
+      end
+
+      policies.keys[0]
     end
 
     def find_client_mac(data, client_name)
       client = data.dig('show', 'ip', 'hotspot', 'host').detect do |host|
         host['name'] == client_name || host['hostname'] == client_name
       end
-      return false if client.nil?
+      return Failure(error: 'cant find client by name') if client.nil?
 
-      client['mac']
+      Success(client['mac'])
     end
 
     def find_client_policy(data, mac)
-      client = data.dig('show', 'sc', 'ip', 'hotspot', 'host').detect do |host|
-        host['mac'] == mac
-      end
+      client = data.dig('show', 'sc', 'ip', 'hotspot', 'host').detect { |host| host['mac'] == mac }
       client['policy']
     end
 
@@ -64,11 +71,10 @@ class KeeneticMaster
         {"ip": {"hotspot": {"host": {"mac": mac, "permit": true, "policy": policy}}}},
         {"system": {"configuration": {"save": {}}}}
       ]
-
       response = Client.new.post_rci(body)
-      Failure(response) if response.code != 200
+      return Failure(response) if response.code != 200
 
-      Success()
+      Success(message: "Клиенту #{current_client_policy ? "выключен" : "включен"} VPN")
     end
   end
 end
