@@ -49,8 +49,8 @@ class KeeneticMaster
 
       if delete_missing
         existing_routes.each do |existing_route|
-          website = existing_route[:comment].match(/^\[auto:([a-z]*)\]/)[1]
-          next if websites.include?(website)
+          website = existing_route[:comment].match(/^\[auto:([a-z]*)\]/).try(:[], 1)
+          next if website.nil? || websites.include?(website)
 
           routes_to_update << process_route(existing_route.dup).merge(comment: existing_route[:comment], no: true)
         end
