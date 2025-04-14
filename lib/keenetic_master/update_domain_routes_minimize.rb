@@ -67,8 +67,6 @@ class KeeneticMaster
 
     def routes_to_exist(website, interface = nil)
       domains = YAML.load_file(ENV.fetch('DOMAINS_FILE'))[website]
-      domains = github_ips(domains) if website == 'github'
-      return [] if domains.nil?
 
       domain_mask = ENV.fetch('DOMAINS_MASK', '32').to_s
       interface = interface.presence || ENV['KEENETIC_VPN_INTERFACE'] || ENV['KEENETIC_VPN_INTERFACES']
@@ -82,6 +80,9 @@ class KeeneticMaster
 
         domains = domains['domains']
       end
+
+      domains = github_ips(domains) if website == 'github'
+      return [] if domains.nil?
 
       if interface.blank?
         logger.info "Используется дефолтный интерфейс для VPN: 'Wireguard0'"
