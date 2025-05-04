@@ -12,7 +12,8 @@ class KeeneticMaster
       eventual_routes = routes_to_exist(group_name, default_interface)
 
       to_delete = existing_routes - eventual_routes
-      DeleteRoutes.call(to_delete.map { |el| el.slice(:network, :mask) })
+      to_delete = [] if ENV['DELETE_ROUTES'] == 'false'
+      DeleteRoutes.call(to_delete.map { |el| el.slice(:network, :mask) }) if to_delete.any?
 
       to_add = eventual_routes - existing_routes
       add_result = AddRoutes.call(to_add)
