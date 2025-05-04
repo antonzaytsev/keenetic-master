@@ -10,6 +10,5 @@ gem 'activesupport'
 gem 'reline'
 gem 'dry-initializer'
 gem 'dry-monads'
-gem 'listen'
 
 gem 'rspec', group: :test
