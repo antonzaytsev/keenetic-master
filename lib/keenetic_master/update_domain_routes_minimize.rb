@@ -88,7 +88,7 @@ class KeeneticMaster
         logger.info "Используется дефолтный интерфейс для VPN: 'Wireguard0'"
         interface = 'Wireguard0'
       end
-      interfaces = interface.split(',').map { |interface| correct_interface_id(interface.strip)}
+      interfaces = interface.split(',').map { |interface| CorrectInterface.call(interface.strip)}
 
       to_add = []
 
@@ -162,22 +162,6 @@ class KeeneticMaster
         .parse(github_meta_response)
         .slice(*sections)
         .values.flatten.reject { |el| el =~ /:/ }.uniq.sort
-    end
-
-    def correct_interface_id(interface)
-      return interface if existing_interfaces.failure?
-
-      existing_interfaces_list = existing_interfaces.value!
-      return interface if existing_interfaces_list.key?(interface)
-
-      existing_interface = existing_interfaces_list.values.detect { |data| data['description'] == interface }
-      return interface if existing_interface.nil?
-
-      existing_interface['id']
-    end
-
-    def existing_interfaces
-      @existing_interfaces ||= KeeneticMaster.interface
     end
 
     def valid_ip_or_mask?(domain)
