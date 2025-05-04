@@ -25,6 +25,7 @@ services:
     volumes:
       - .:/app
       - bundle:/usr/local/bundle
+      - /var/log/dnsmasq.log:/var/log/dnsmasq.log
     env_file: ".env"
     command: ruby cmd/follow_dns_logs.rb
 
