@@ -5,12 +5,12 @@ services:
       context: .
       args:
         RUBY_VERSION: '3.4.1'
-    image: antonzaytsev/keenetic_master:1.0.0
     stdin_open: true
     tty: true
     restart: always
     volumes:
       - .:/app
+      - bundle:/usr/local/bundle
     env_file: ".env"
     command: ruby cmd/crontab.rb
 
@@ -19,11 +19,14 @@ services:
       context: .
       args:
         RUBY_VERSION: '3.4.1'
-    image: antonzaytsev/keenetic_master:1.0.0
     stdin_open: true
     tty: true
     restart: always
     volumes:
       - .:/app
+      - bundle:/usr/local/bundle
     env_file: ".env"
     command: ruby cmd/follow_dns_logs.rb
+
+volumes:
+  bundle:
