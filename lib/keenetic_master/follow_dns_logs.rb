@@ -2,6 +2,8 @@ require_relative 'mutate_route_request'
 
 class KeeneticMaster
   class FollowDnsLogs < MutateRouteRequest
+    WAIT = 1.second
+
     def call(dns_file)
       if !File.exist?(dns_file) || !File.readable?(dns_file)
         puts "Не указаны или недоступен файл в переменной окружения DNS_LOGS_PATH `#{dns_file}`"
@@ -15,15 +17,17 @@ class KeeneticMaster
 
       last_position = File.size(dns_file)
 
-      listener = Listen.to(File.dirname(dns_file), only: /#{Regexp.escape(File.basename(dns_file))}/) do |modified, _added, _removed|
-        next unless modified.include?(dns_file)
-
+      while true
         current_size = File.size(dns_file)
-        next if current_size == last_position
+        if current_size == last_position
+          sleep WAIT
+          next
+        end
 
         # If file was truncated, reset position
         if current_size < last_position
           last_position = 0
+          sleep WAIT
           next
         end
 
@@ -31,18 +35,20 @@ class KeeneticMaster
         File.open(dns_file, 'r') do |file|
           file.seek(last_position)
           new_content = file.read
-          next if new_content.empty?
+          if new_content.empty?
+            sleep WAIT
+            next
+          end
 
           process_logs(new_content)
         end
         last_position = current_size
+
+        sleep WAIT
       end
 
-      listener.start
-      sleep
-
     rescue Interrupt
-      listener.stop
+      # listener.stop
     end
 
     private
@@ -63,7 +69,7 @@ class KeeneticMaster
                 routes_to_update << {
                   host: reply[:ip],
                   interface: CorrectInterface.call(interface),
-                  comment: "[auto: #{website}] #{domain}",
+                  comment: "[auto: #{website}] #{reply[:domain]}",
                   auto: true
                 }
               end
