@@ -56,20 +56,20 @@ class KeeneticMaster
     def process_logs(new_content)
       routes_to_update = []
 
-      groups = DnsmasqLogParser.new.parse_lines(new_content)
-      groups.each do |group|
-        next if group.dig(:query, :query_type) != "A"
+      new_content.lines.each do |line|
+        group = JSON.parse(line)
+        next if group['ip_address'].blank?
 
         follow_dns.each do |website, data|
           data[:domains].each do |domain|
-            next if group[:query][:domain] !~ /#{Regexp.escape(domain)}$/
+            next if group['domain'] !~ /#{Regexp.escape(domain)}$/
 
-            group[:reply].each do |reply|
+            group[:ip_address].each do |ip_address|
               data[:interfaces].each do |interface|
                 routes_to_update << {
-                  host: reply[:ip],
+                  host: ip_address,
                   interface: CorrectInterface.call(interface),
-                  comment: "[auto: #{website}] #{reply[:domain]}",
+                  comment: "[auto: #{website}] #{domain}",
                   auto: true
                 }
               end
