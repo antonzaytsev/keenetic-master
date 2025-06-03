@@ -14,20 +14,19 @@ services:
     env_file: ".env"
     command: ruby cmd/crontab.rb
 
-#  dnsmask-logs:
-#    build:
-#      context: .
-#      args:
-#        RUBY_VERSION: '3.4.1'
-#    stdin_open: true
-#    tty: true
-#    restart: always
-#    volumes:
-#      - .:/app
-#      - bundle:/usr/local/bundle
-#      - /var/log/dnsmasq.log:/var/log/dnsmasq.log
-#    env_file: ".env"
-#    command: ruby cmd/follow_dns_logs.rb
+  dns-logs:
+    build:
+      context: .
+      args:
+        RUBY_VERSION: '3.4.1'
+    stdin_open: true
+    tty: true
+    restart: always
+    volumes:
+      - .:/app
+      - bundle:/usr/local/bundle
+    env_file: ".env"
+    command: ruby cmd/follow_dns_logs.rb
 
 volumes:
   bundle:
