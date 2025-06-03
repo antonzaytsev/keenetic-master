@@ -2,14 +2,13 @@ require_relative '../config/application'
 
 logger = BaseClass.new.send(:logger, STDOUT)
 
-group = ARGV[0]
-if group
-  logger.info "Начато обновление доменов для группы #{group}"
-  response = KeeneticMaster::UpdateDomainRoutes.call(group, ARGV[1])
+if ARGV.any?
+  logger.info "Начато обновление доменов для групп #{ARGV.join(', ')}"
+  response = KeeneticMaster::UpdateDomainRoutesMinimize.call(ARGV, delete_missing: ENV['DELETE_ROUTES'].nil? || ENV['DELETE_ROUTES'] == 'true')
   if response.failure?
     logger.info "Ошибка: #{response.failure[:message]}"
   else
-    print response.value![:message]
+    p response.value![:message]
   end
 else
   logger.info "Начато обновление всех групп и их доменов из #{ENV.fetch('DOMAINS_FILE')}"

@@ -57,14 +57,15 @@ class KeeneticMaster
       routes_to_update = []
 
       new_content.lines.each do |line|
-        group = JSON.parse(line)
-        next if group['ip_address'].blank?
+        json = line.split(' ', 3).last
+        group = JSON.parse(json) rescue nil
+        next if group.nil? || group['ip_addresses'].blank?
 
         follow_dns.each do |website, data|
           data[:domains].each do |domain|
-            next if group['domain'] !~ /#{Regexp.escape(domain)}$/
+            next if group['request']['query'][0..-2] !~ /#{Regexp.escape(domain)}$/
 
-            group[:ip_address].each do |ip_address|
+            group['ip_addresses'].each do |ip_address|
               data[:interfaces].each do |interface|
                 routes_to_update << {
                   host: ip_address,

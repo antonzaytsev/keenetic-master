@@ -13,6 +13,8 @@ class KeeneticMaster
 
       existing_routes = GetAllRoutes.new.call.value![:message]
 
+      bar = ProgressBar.new(websites.size+1)
+
       websites.each do |group_name|
         existing_routes_standardized = existing_routes.filter_map do |row|
           next if row[:comment] !~ /^#{Regexp.escape(PATTERN.sub('{website}', group_name))}/
@@ -45,6 +47,8 @@ class KeeneticMaster
 
           route.dup
         end
+
+        bar.increment!
       end
 
       if delete_missing
@@ -56,7 +60,10 @@ class KeeneticMaster
         end
       end
 
+      File.write('tmp/request-dumps/request.json', routes_to_update.to_json)
+
       ApplyRouteChanges.call(routes_to_update)
+      bar.increment!
 
       message = "Успешно обработано групп: #{websites.size}. Затронуто роутов: #{routes_to_update.size}. Роутов итого: #{eventual_routes_amount}. Время: #{(Time.now - start).round(2)}сек"
       logger.info(message)
