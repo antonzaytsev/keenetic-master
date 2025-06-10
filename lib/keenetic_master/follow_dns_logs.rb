@@ -63,14 +63,15 @@ class KeeneticMaster
 
         follow_dns.each do |website, data|
           data[:domains].each do |domain|
-            next if group['request']['query'][0..-2] !~ /#{Regexp.escape(domain)}$/
+            requested_domain = group['request']['query'][0..-2]
+            next if requested_domain == domain || requested_domain !~ /\.#{Regexp.escape(domain)}$/
 
             group['ip_addresses'].each do |ip_address|
               data[:interfaces].each do |interface|
                 routes_to_update << {
                   host: ip_address,
                   interface: CorrectInterface.call(interface),
-                  comment: "[auto: #{website}] #{domain}",
+                  comment: "[auto:#{website}] #{requested_domain}",
                   auto: true
                 }
               end

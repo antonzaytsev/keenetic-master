@@ -10,6 +10,6 @@ gem 'activesupport'
 gem 'reline'
 gem 'dry-initializer'
 gem 'dry-monads'
-# gem 'progress_bar'
+gem 'progress_bar'
 
 gem 'rspec', group: :test
