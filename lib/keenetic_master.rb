@@ -15,5 +15,11 @@ class KeeneticMaster
 
       Dry::Monads::Result::Success.new(JSON.parse(response.body))
     end
+
+    private
+
+    def logger
+      @logger ||= BaseClass.new.send(:logger)
+    end
   end
 end

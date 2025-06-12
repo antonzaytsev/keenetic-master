@@ -5,26 +5,58 @@ require 'dotenv/load'
 require "active_support/core_ext/object"
 require "active_support/json"
 require 'logger'
+require 'fileutils'
 
-def load_files
-  root_dir = File.expand_path('../', __dir__)
+class ApplicationLoader
+  class << self
+    def load_application
+      load_project_files
+      validate_configuration
+      setup_directories
+    end
 
-  # Directories within the project that should be reloaded.
-  reload_dirs = %w{lib}
+    def reload!(print = true)
+      puts 'Reloading ...' if print
+      load_project_files
+      true
+    rescue StandardError => error
+      puts "Error reloading: #{error.message}"
+      false
+    end
 
-  # Loop through and reload every file in all relevant project directories.
-  reload_dirs.each do |dir|
-    Dir.glob("#{root_dir}/#{dir}/**/*.rb").each { |f| load(f) }
+    private
+
+    def load_project_files
+      root_dir = File.expand_path('../', __dir__)
+      reload_dirs = %w[lib]
+
+      reload_dirs.each do |dir|
+        Dir.glob("#{root_dir}/#{dir}/**/*.rb").sort.each { |file| load(file) }
+      end
+    end
+
+    def validate_configuration
+      KeeneticMaster::Configuration.validate!
+    rescue KeeneticMaster::Configuration::ConfigurationError => e
+      puts "Configuration Error: #{e.message}"
+      puts "Please check your .env file and ensure all required variables are set."
+      exit(1)
+    end
+
+    def setup_directories
+      %w[tmp/logs tmp/request-dumps].each do |dir|
+        FileUtils.mkdir_p(dir) unless File.directory?(dir)
+      end
+    end
   end
 end
-load_files
 
+# Load the application
+ApplicationLoader.load_application
+
+# Create convenience methods for console usage
 def reload!(print = true)
-  puts 'Reloading ...' if print
-
-  load_files
-
-  true
+  ApplicationLoader.reload!(print)
 end
 
 def verify_env_set
