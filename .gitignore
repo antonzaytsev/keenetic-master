@@ -2,3 +2,6 @@
 config/cookie
 config/domains.yml
 tmp
+.cursor/
+logs/
+.env
