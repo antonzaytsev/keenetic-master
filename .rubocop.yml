@@ -1,0 +1,76 @@
+require:
+  - rubocop-performance
+  - rubocop-rspec
+
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 3.0
+  Exclude:
+    - 'vendor/**/*'
+    - 'tmp/**/*'
+    - 'bin/**/*'
+    - 'Gemfile.lock'
+
+# Layout
+Layout/LineLength:
+  Max: 120
+  AllowedPatterns: ['(\A|\s)#']
+
+Layout/MultilineMethodCallIndentation:
+  EnforcedStyle: aligned
+
+Layout/MultilineOperationIndentation:
+  EnforcedStyle: aligned
+
+# Style
+Style/Documentation:
+  Enabled: false
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/FrozenStringLiteralComment:
+  Enabled: false
+
+Style/ClassAndModuleChildren:
+  Enabled: false
+
+Style/GuardClause:
+  MinBodyLength: 3
+
+# Metrics
+Metrics/ClassLength:
+  Max: 200
+
+Metrics/MethodLength:
+  Max: 30
+  CountAsOne: ['array', 'hash', 'heredoc']
+
+Metrics/BlockLength:
+  Max: 50
+  CountAsOne: ['array', 'hash', 'heredoc']
+  AllowedMethods: ['describe', 'context', 'it', 'specify']
+
+Metrics/AbcSize:
+  Max: 25
+
+Metrics/CyclomaticComplexity:
+  Max: 8
+
+# Naming
+Naming/VariableNumber:
+  Enabled: false
+
+# Performance
+Performance/RedundantBlockCall:
+  Enabled: true
+
+Performance/StringReplacement:
+  Enabled: true
+
+# Disable some cops that don't fit our style
+Style/NumericLiterals:
+  Enabled: false
+
+Style/PercentLiteralDelimiters:
+  Enabled: false 
