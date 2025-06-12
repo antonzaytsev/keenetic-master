@@ -80,7 +80,11 @@ class KeeneticMaster
         end
       end
 
+      p "Обновлено #{routes_to_update.size} routes_to_update"
+
       return if routes_to_update.blank?
+
+      p routes_to_update
 
       ApplyRouteChanges.call(routes_to_update)
     end
