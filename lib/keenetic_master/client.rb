@@ -1,5 +1,12 @@
+require 'digest'
+require 'typhoeus'
+
 class KeeneticMaster
-  class Client
+  class Client < BaseClass
+    class ClientError < StandardError; end
+    class AuthenticationError < ClientError; end
+    class RequestError < ClientError; end
+
     def self.get(url)
       new.get(url)
     end
@@ -11,11 +18,15 @@ class KeeneticMaster
     def get(url)
       ensure_logged_in
       make_request(url)
+    rescue StandardError => e
+      handle_error(e, "GET request to #{url}")
     end
 
     def post_rci(body)
       ensure_logged_in
       make_request('rci/', body)
+    rescue StandardError => e
+      handle_error(e, "POST RCI request")
     end
 
     private
@@ -24,68 +35,76 @@ class KeeneticMaster
       auth_response = make_request('auth')
       return if auth_response.code == 200
 
-      raise "Unknown error on GET /auth: #{auth_response.code}" if auth_response.code != 401
+      return authenticate if auth_response.code == 401
 
-      md5 = Digest::MD5.hexdigest("#{keenetic_credentials.fetch(:login)}:#{auth_response.headers["X-NDM-Realm"]}:#{keenetic_credentials.fetch(:password)}")
-      sha = Digest::SHA256.hexdigest("#{auth_response.headers["X-NDM-Challenge"]}#{md5}")
+      raise RequestError, "Unexpected response from /auth: #{auth_response.code}"
+    end
 
-      login_response = make_request(
-        'auth',
-        {
-          login: keenetic_credentials.fetch(:login),
-          password: sha
-        }
-      )
-
-      if login_response.code != 200
-        raise "Can't login. Code: #{login_response.code}"
+    def authenticate
+      auth_response = make_request('auth')
+      
+      unless auth_response.headers["X-NDM-Realm"] && auth_response.headers["X-NDM-Challenge"]
+        raise AuthenticationError, "Missing authentication headers in response"
       end
 
-      login_response
+      credentials = Configuration.keenetic_credentials
+      
+      md5_hash = Digest::MD5.hexdigest(
+        "#{credentials[:login]}:#{auth_response.headers["X-NDM-Realm"]}:#{credentials[:password]}"
+      )
+      
+      sha_hash = Digest::SHA256.hexdigest(
+        "#{auth_response.headers["X-NDM-Challenge"]}#{md5_hash}"
+      )
+
+      login_response = make_request('auth', {
+        login: credentials[:login],
+        password: sha_hash
+      })
+
+      return if login_response.code == 200
+
+      raise AuthenticationError, "Authentication failed with code: #{login_response.code}"
     end
 
     def make_request(path, body = nil)
-      url = "http://#{keenetic_credentials.fetch(:host)}/#{path}"
-
-      options = {
-        cookiefile: 'config/cookie',
-        cookiejar: 'config/cookie',
-        method: :get,
-        headers: {
-          "Content-Type" => "application/json",
-          "Accept" => "application/json",
-          "Connection" => "keep-alive",
-        }
-        # verbose: true
-      }
-
-      if body
-        options.merge!(
-          method: :post,
-          body: body.to_json
-        )
-      end
-
-      Typhoeus::Request.new(url, options).run
+      url = build_url(path)
+      options = build_request_options(body)
+      
+      logger.debug("Making request to #{url}")
+      
+      response = Typhoeus::Request.new(url, options).run
+      
+      logger.debug("Response code: #{response.code}")
+      
+      response
     end
 
-    def headers
-      cookie = File.read('config/cookie').strip
+    def build_url(path)
+      host = Configuration.keenetic_credentials[:host]
+      "http://#{host}/#{path}"
+    end
+
+    def build_request_options(body = nil)
+      options = {
+        cookiefile: Configuration.cookie_file_path,
+        cookiejar: Configuration.cookie_file_path,
+        method: body ? :post : :get,
+        headers: default_headers,
+        timeout: 30,
+        connecttimeout: 10
+      }
+
+      options[:body] = body.to_json if body
+      options
+    end
+
+    def default_headers
       {
         "Content-Type" => "application/json",
-        "Host" => "http://192.168.0.1:80",
-        "Accept" => "application/json, text/plain, */*",
-        "accept-encoding" => "gzip, deflate",
-        "connection" => "keep-alive",
-        "cookie" => "sysmode=router; ZLWSOLJNSPVRBK=#{cookie}; IVACNMCTSHSEHJAP=#{cookie}"
-      }
-    end
-
-    def keenetic_credentials
-      @keenetic_credentials ||= {
-        login: ENV.fetch('KEENETIC_LOGIN'),
-        password: ENV.fetch('KEENETIC_PASSWORD'),
-        host: ENV.fetch('KEENETIC_HOST')
+        "Accept" => "application/json",
+        "Connection" => "keep-alive",
+        "User-Agent" => "KeeneticMaster/#{KeeneticMaster::VERSION}"
       }
     end
   end
