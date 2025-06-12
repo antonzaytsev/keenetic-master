@@ -48,7 +48,6 @@ class KeeneticMaster
       end
 
     rescue Interrupt
-      # listener.stop
     end
 
     private
@@ -57,19 +56,20 @@ class KeeneticMaster
       routes_to_update = []
 
       new_content.lines.each do |line|
-        json = line.split(' ', 3).last
-        group = JSON.parse(json) rescue nil
+        group = JSON.parse(line) rescue nil
         next if group.nil? || group['ip_addresses'].blank?
+
+        requested_domain = group['request']['query'][0..-2]
 
         follow_dns.each do |website, data|
           data[:domains].each do |domain|
-            requested_domain = group['request']['query'][0..-2]
-            next if requested_domain == domain || requested_domain !~ /\.#{Regexp.escape(domain)}$/
+            next if requested_domain != domain && requested_domain !~ /\.#{Regexp.escape(domain)}$/
 
             group['ip_addresses'].each do |ip_address|
               data[:interfaces].each do |interface|
                 routes_to_update << {
-                  host: ip_address,
+                  network: ip_address.sub(/\.\d+$/, '.0'),
+                  mask: Constants::MASKS.fetch('24'),
                   interface: CorrectInterface.call(interface),
                   comment: "[auto:#{website}] #{requested_domain}",
                   auto: true
@@ -98,6 +98,7 @@ class KeeneticMaster
           interfaces: (data['settings']&.dig('interfaces') || ENV['KEENETIC_VPN_INTERFACES']).split(',').map(&:strip),
         }
       end
+
       @follow_dns
     end
   end
