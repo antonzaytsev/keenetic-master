@@ -48,8 +48,16 @@ A Ruby application for managing Keenetic router static routes for specific domai
 
 5. Start the application:
    ```bash
+   # Start all services (cron job, DNS monitoring, and web UI)
    docker compose up
+   
+   # Or start specific services
+   docker compose up app          # Just the cron job
+   docker compose up web          # Just the web UI
+   docker compose up dns-logs     # Just DNS log monitoring
    ```
+   
+   The web UI will be available at `http://localhost:4567` (or your configured port).
 
 ### Local Development Setup
 
@@ -111,6 +119,15 @@ MINIMIZE=false
 DELETE_ROUTES=true
 LOG_LEVEL=INFO
 
+# Web UI settings
+WEB_PORT=4567            # Port for the web server (default: 4567)
+WEB_BIND=0.0.0.0         # Bind address (default: 0.0.0.0)
+WEB_HOST_PORT=4567       # Host port mapping for Docker (default: 4567)
+
+# DNS logs monitoring (optional)
+DNS_LOGS_HOST_PATH=./tmp/dns.log
+DNS_LOGS_CONTAINER_PATH=/app/logs/dns.log
+
 # Optional overrides
 GITHUB_META_URL=https://api.github.com/meta
 COOKIE_FILE=config/cookie
@@ -148,9 +165,72 @@ github_meta:
   - web      # GitHub web IPs
   - api      # GitHub API IPs
   - git      # GitHub Git IPs
+
+# DNS monitoring configuration
+youtube:
+  settings:
+    mask: "32"
+    interfaces: "Wireguard0"
+  domains:
+    - youtube.com
+    - ytimg.com
+  follow_dns:           # Domains monitored from DNS logs
+    - googleapis.com    # Automatically add IPs when requested
+    - googlevideo.com   # Dynamic routing based on actual usage
 ```
 
 ## Usage
+
+### Web User Interface
+
+The application includes a simple web interface for managing domain groups:
+
+```bash
+# Start the web server
+ruby cmd/web_server.rb
+
+# Or with custom port
+WEB_PORT=8080 ruby cmd/web_server.rb
+```
+
+Then open your browser to `http://localhost:4567` (or your custom port).
+
+#### Web UI Features
+
+- **Dashboard**: View all domain groups with their configurations
+- **Create/Edit Groups**: Add new domain groups or modify existing ones
+- **Simple & Advanced Modes**: Support for both simple domain lists and advanced configurations with settings
+- **DNS Monitoring Support**: Full support for `follow_dns` configuration to monitor domains from DNS logs
+- **Bulk Operations**: Add multiple domains at once (regular domains and DNS monitoring)
+- **Real-time Updates**: Changes are immediately written to the domains.yml file
+- **Responsive Design**: Works well on desktop and mobile devices
+
+#### Web UI Environment Variables
+
+```bash
+WEB_PORT=4567        # Port for the web server (default: 4567)
+WEB_BIND=0.0.0.0     # Bind address (default: 0.0.0.0)
+WEB_HOST_PORT=4567   # Host port mapping for Docker (default: 4567)
+```
+
+#### Docker Compose Usage
+
+```bash
+# Start all services
+docker compose up
+
+# Start only the web UI
+docker compose up web
+
+# Start web UI in background
+docker compose up -d web
+
+# View logs
+docker compose logs web
+
+# Stop services
+docker compose down
+```
 
 ### Command Line Interface
 

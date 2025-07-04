@@ -19,7 +19,8 @@ RUN apt-get update -qq \
 # Configure bundler
 ENV LANG=C.UTF-8 \
   BUNDLE_JOBS=4 \
-  BUNDLE_RETRY=3
+  BUNDLE_RETRY=3 \
+  BUNDLE_PATH=/usr/local/bundle
 
 # Create a directory for the app code
 RUN mkdir -p /app

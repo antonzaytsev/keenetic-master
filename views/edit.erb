@@ -1,0 +1,353 @@
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-<%= @group_name.empty? ? 'plus' : 'edit' %> me-2"></i>
+                <%= @group_name.empty? ? 'Create' : 'Edit' %> Domain Group
+            </h1>
+            <a href="/" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>
+                Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-layer-group me-2"></i>
+                    Domain Group Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="domainForm">
+                    <div class="mb-3">
+                        <label for="groupName" class="form-label">Group Name</label>
+                        <input type="text" class="form-control" id="groupName" value="<%= @group_name %>" 
+                               <%= @group_name.empty? ? '' : 'readonly' %> required>
+                        <div class="form-text">
+                            Enter a unique name for this domain group (lowercase, no spaces)
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Configuration Type</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="configType" id="simpleConfig" value="simple" checked>
+                            <label class="form-check-label" for="simpleConfig">
+                                Simple (Domain list only)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="configType" id="advancedConfig" value="advanced">
+                            <label class="form-check-label" for="advancedConfig">
+                                Advanced (With settings)
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="advancedSettings" class="mb-3" style="display: none;">
+                        <div class="settings-section">
+                            <h6><i class="fas fa-cog me-2"></i>Settings</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="mask" class="form-label">Network Mask</label>
+                                    <select class="form-select" id="mask">
+                                        <option value="">Use default</option>
+                                        <option value="24">24 (/24)</option>
+                                        <option value="32">32 (/32)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="interfaces" class="form-label">VPN Interfaces</label>
+                                    <input type="text" class="form-control" id="interfaces" placeholder="e.g., Wireguard0,[WG] Latvia">
+                                    <div class="form-text">Comma-separated list of interfaces</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="domains" class="form-label">
+                            Domains
+                            <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="addDomain()">
+                                <i class="fas fa-plus"></i> Add Domain
+                            </button>
+                        </label>
+                        <div id="domainsList" class="border rounded p-3 mb-2" style="min-height: 100px;">
+                            <!-- Domains will be added here -->
+                        </div>
+                        <div class="form-text">
+                            Supported formats: domain names (example.com), IP addresses (192.168.1.1), 
+                            CIDR notation (192.168.1.0/24), or GitHub special values (hooks, web, api, etc.)
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="followDns" class="form-label">
+                            <i class="fas fa-search me-2"></i>DNS Monitoring (follow_dns)
+                            <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="addFollowDns()">
+                                <i class="fas fa-plus"></i> Add Domain
+                            </button>
+                        </label>
+                        <div id="followDnsList" class="border rounded p-3 mb-2" style="min-height: 100px;">
+                            <!-- Follow DNS domains will be added here -->
+                        </div>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Domains to monitor from DNS logs. When these domains are requested, 
+                            their IPs will be automatically added to routing tables.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="bulkDomains" class="form-label">Bulk Add Domains</label>
+                        <textarea class="form-control" id="bulkDomains" rows="3" 
+                                  placeholder="Enter multiple domains, one per line or comma-separated"></textarea>
+                        <div class="form-text">
+                            Enter multiple domains at once, separated by new lines or commas
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addBulkDomains()">
+                            <i class="fas fa-plus"></i> Add All
+                        </button>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="bulkFollowDns" class="form-label">Bulk Add DNS Monitoring</label>
+                        <textarea class="form-control" id="bulkFollowDns" rows="3" 
+                                  placeholder="Enter multiple domains to monitor, one per line or comma-separated"></textarea>
+                        <div class="form-text">
+                            Enter multiple domains to monitor from DNS logs
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addBulkFollowDns()">
+                            <i class="fas fa-plus"></i> Add All
+                        </button>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn btn-secondary" onclick="history.back()">
+                            <i class="fas fa-times me-2"></i>
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>
+                            Save Domain Group
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let domains = [];
+    let followDns = [];
+    let isAdvanced = false;
+
+    // Initialize form with existing data
+    document.addEventListener('DOMContentLoaded', function() {
+        const domainData = <%= @domain_data.to_json %>;
+        
+        if (Array.isArray(domainData)) {
+            domains = [...domainData];
+        } else if (domainData && typeof domainData === 'object') {
+            isAdvanced = true;
+            document.getElementById('advancedConfig').checked = true;
+            document.getElementById('advancedSettings').style.display = 'block';
+            
+            if (domainData.settings) {
+                if (domainData.settings.mask) {
+                    document.getElementById('mask').value = domainData.settings.mask;
+                }
+                if (domainData.settings.interfaces) {
+                    document.getElementById('interfaces').value = domainData.settings.interfaces;
+                }
+            }
+            
+            domains = domainData.domains || [];
+            followDns = domainData.follow_dns || [];
+        }
+        
+        renderDomains();
+        renderFollowDns();
+    });
+
+    // Handle config type changes
+    document.querySelectorAll('input[name="configType"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            isAdvanced = this.value === 'advanced';
+            document.getElementById('advancedSettings').style.display = isAdvanced ? 'block' : 'none';
+        });
+    });
+
+    function renderDomains() {
+        const container = document.getElementById('domainsList');
+        container.innerHTML = '';
+        
+        if (domains.length === 0) {
+            container.innerHTML = '<p class="text-muted mb-0">No domains added yet</p>';
+            return;
+        }
+        
+        // Create array of objects with domain and original index, then sort
+        const domainsWithIndex = domains.map((domain, index) => ({ domain, originalIndex: index }));
+        domainsWithIndex.sort((a, b) => a.domain.localeCompare(b.domain));
+        
+        domainsWithIndex.forEach(({ domain, originalIndex }) => {
+            const domainElement = document.createElement('div');
+            domainElement.className = 'domain-item d-flex justify-content-between align-items-center mb-2';
+            domainElement.innerHTML = `
+                <span><i class="fas fa-globe fa-xs me-2"></i>${domain}</span>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeDomain(${originalIndex})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            container.appendChild(domainElement);
+        });
+    }
+
+    function renderFollowDns() {
+        const container = document.getElementById('followDnsList');
+        container.innerHTML = '';
+        
+        if (followDns.length === 0) {
+            container.innerHTML = '<p class="text-muted mb-0">No DNS monitoring domains added yet</p>';
+            return;
+        }
+        
+        // Create array of objects with domain and original index, then sort
+        const followDnsWithIndex = followDns.map((domain, index) => ({ domain, originalIndex: index }));
+        followDnsWithIndex.sort((a, b) => a.domain.localeCompare(b.domain));
+        
+        followDnsWithIndex.forEach(({ domain, originalIndex }) => {
+            const domainElement = document.createElement('div');
+            domainElement.className = 'domain-item d-flex justify-content-between align-items-center mb-2';
+            domainElement.innerHTML = `
+                <span><i class="fas fa-search fa-xs me-2"></i>${domain}</span>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFollowDns(${originalIndex})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            container.appendChild(domainElement);
+        });
+    }
+
+    function addDomain() {
+        const domain = prompt('Enter domain name:');
+        if (domain && domain.trim()) {
+            const trimmedDomain = domain.trim();
+            if (!domains.includes(trimmedDomain)) {
+                domains.push(trimmedDomain);
+                renderDomains();
+            }
+        }
+    }
+
+    function removeDomain(index) {
+        domains.splice(index, 1);
+        renderDomains();
+    }
+
+    function addFollowDns() {
+        const domain = prompt('Enter domain name to monitor:');
+        if (domain && domain.trim()) {
+            const trimmedDomain = domain.trim();
+            if (!followDns.includes(trimmedDomain)) {
+                followDns.push(trimmedDomain);
+                renderFollowDns();
+            }
+        }
+    }
+
+    function removeFollowDns(index) {
+        followDns.splice(index, 1);
+        renderFollowDns();
+    }
+
+    function addBulkDomains() {
+        const bulkText = document.getElementById('bulkDomains').value;
+        if (!bulkText.trim()) return;
+        
+        const newDomains = bulkText
+            .split(/[,\n]/)
+            .map(d => d.trim())
+            .filter(d => d.length > 0 && !domains.includes(d));
+        
+        domains.push(...newDomains);
+        document.getElementById('bulkDomains').value = '';
+        renderDomains();
+    }
+
+    function addBulkFollowDns() {
+        const bulkText = document.getElementById('bulkFollowDns').value;
+        if (!bulkText.trim()) return;
+        
+        const newDomains = bulkText
+            .split(/[,\n]/)
+            .map(d => d.trim())
+            .filter(d => d.length > 0 && !followDns.includes(d));
+        
+        followDns.push(...newDomains);
+        document.getElementById('bulkFollowDns').value = '';
+        renderFollowDns();
+    }
+
+    // Handle form submission
+    document.getElementById('domainForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const groupName = document.getElementById('groupName').value.trim();
+        if (!groupName) {
+            showAlert('Please enter a group name', 'danger');
+            return;
+        }
+        
+        let domainData;
+        
+        if (isAdvanced) {
+            domainData = {
+                domains: domains
+            };
+            
+            const mask = document.getElementById('mask').value;
+            const interfaces = document.getElementById('interfaces').value.trim();
+            
+            if (mask || interfaces) {
+                domainData.settings = {};
+                if (mask) domainData.settings.mask = mask;
+                if (interfaces) domainData.settings.interfaces = interfaces;
+            }
+            
+            // Add follow_dns if there are any
+            if (followDns.length > 0) {
+                domainData.follow_dns = followDns;
+            }
+        } else {
+            domainData = domains;
+            
+            // For simple mode, if there are follow_dns domains, we need to convert to advanced
+            if (followDns.length > 0) {
+                domainData = {
+                    domains: domains,
+                    follow_dns: followDns
+                };
+            }
+        }
+        
+        // Save the domain group
+        axios.post(`/api/domains/${groupName}`, domainData)
+            .then(response => {
+                showAlert(response.data.message, 'success');
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1000);
+            })
+            .catch(error => {
+                showAlert(error.response?.data?.error || 'Error saving domain group', 'danger');
+            });
+    });
+</script> 

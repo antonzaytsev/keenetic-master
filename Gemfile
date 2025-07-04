@@ -14,6 +14,11 @@ gem "progress_bar", "~> 1.3"
 # Configuration and environment
 gem "dotenv", "~> 2.8"
 
+# Web framework
+gem "sinatra", "~> 3.0"
+gem "sinatra-contrib", "~> 3.0"
+gem "puma", "~> 6.0"
+
 # Data handling
 gem "json", "~> 2.6"
 

@@ -11,9 +11,9 @@ services:
     restart: always
     volumes:
       - .:/app
-      - bundle:/usr/local/bundle
+      - bundle_cache:/usr/local/bundle
     env_file: ".env"
-    command: ruby cmd/crontab.rb
+    command: sh -c "bundle install && ruby cmd/crontab.rb"
 
   dns-logs:
     build:
@@ -26,10 +26,30 @@ services:
     restart: always
     volumes:
       - .:/app
-      - bundle:/usr/local/bundle
+      - bundle_cache:/usr/local/bundle
       - ${DNS_LOGS_HOST_PATH:-./tmp/dns.log}:${DNS_LOGS_CONTAINER_PATH:-/app/logs/dns.log}
     env_file: ".env"
-    command: ruby cmd/follow_dns_logs.rb
+    command: sh -c "bundle install && ruby cmd/follow_dns_logs.rb"
+
+  web:
+    build:
+      context: .
+      args:
+        RUBY_VERSION: '3.4.1'
+    image: keenetic-master:1.0.0
+    stdin_open: true
+    tty: true
+    restart: always
+    ports:
+      - "${WEB_HOST_PORT:-4567}:${WEB_PORT:-4567}"
+    volumes:
+      - .:/app
+      - bundle_cache:/usr/local/bundle
+    env_file: ".env"
+    environment:
+      - WEB_PORT=${WEB_PORT:-4567}
+      - WEB_BIND=${WEB_BIND:-0.0.0.0}
+    command: sh -c "bundle install && ruby cmd/web_server.rb"
 
 volumes:
-  bundle:
+  bundle_cache:

@@ -11,7 +11,7 @@ class CronTabRunner < BaseClass
   def run
     logger.info("Starting KeeneticMaster cron job. PID: #{Process.pid}")
     logger.info("Domains file: #{KeeneticMaster::Configuration.domains_file}")
-    
+
     while @running
       begin
         update_cycle
@@ -22,7 +22,7 @@ class CronTabRunner < BaseClass
         sleep_with_interruption_check(300) # 5 minutes on error
       end
     end
-    
+
     logger.info("Cron job stopped gracefully")
   end
 
@@ -30,9 +30,9 @@ class CronTabRunner < BaseClass
 
   def update_cycle
     logger.info("Starting scheduled update of all domain groups")
-    
+
     result = KeeneticMaster::UpdateAllRoutes.call
-    
+
     if result&.failure?
       logger.error("Update failed: #{result.failure}")
     else
