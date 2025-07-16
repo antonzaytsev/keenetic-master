@@ -3,6 +3,7 @@ require_relative 'mutate_route_request'
 class KeeneticMaster
   class FollowDnsLogs < MutateRouteRequest
     WAIT = 1
+    DOMAINS_FILE_CACHE_TTL = 5.minutes
 
     def call(dns_file)
       if !File.exist?(dns_file) || !File.readable?(dns_file)
@@ -90,20 +91,27 @@ class KeeneticMaster
     end
 
     def follow_dns
-      return @follow_dns if defined?(@follow_dns)
+      if @follow_dns && @follow_dns[:cached_at] && @follow_dns[:cached_at] > DOMAINS_FILE_CACHE_TTL.ago
+        return @follow_dns[:websites]
+      end
 
-      @follow_dns = {}
+      websites = {}
       YAML.load_file(ENV.fetch('DOMAINS_FILE')).each do |website, data|
         next unless data.is_a?(Hash)
         next if data['follow_dns'].blank?
 
-        @follow_dns[website] = {
+        websites[website] = {
           domains: data['follow_dns'],
           interfaces: (data['settings']&.dig('interfaces') || ENV['KEENETIC_VPN_INTERFACES']).split(',').map(&:strip),
         }
       end
 
-      @follow_dns
+      @follow_dns = {
+        cached_at: Time.now,
+        websites: websites
+      }
+
+      websites
     end
   end
 end
