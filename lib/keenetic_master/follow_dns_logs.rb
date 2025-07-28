@@ -3,7 +3,7 @@ require_relative 'mutate_route_request'
 class KeeneticMaster
   class FollowDnsLogs < MutateRouteRequest
     WAIT = 1
-    DOMAINS_FILE_CACHE_TTL = 5.minutes
+    DOMAINS_FILE_CACHE_TTL = 5
 
     def call(dns_file)
       if !File.exist?(dns_file) || !File.readable?(dns_file)
