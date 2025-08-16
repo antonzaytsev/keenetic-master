@@ -91,7 +91,7 @@ class KeeneticMaster
     end
 
     def follow_dns
-      if @follow_dns && @follow_dns[:cached_at] && @follow_dns[:cached_at] > DOMAINS_FILE_CACHE_TTL.ago
+      if @follow_dns && @follow_dns[:cached_at] && @follow_dns[:cached_at] > (Time.now - DOMAINS_FILE_CACHE_TTL)
         return @follow_dns[:websites]
       end
 
