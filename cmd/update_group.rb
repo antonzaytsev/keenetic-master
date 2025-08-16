@@ -9,7 +9,7 @@ class UpdateGroupCommand < BaseClass
 
   def run
     return show_help if help_requested?
-    
+
     if @argv.any?
       update_specific_groups(@argv)
     else
@@ -48,12 +48,12 @@ class UpdateGroupCommand < BaseClass
 
   def update_specific_groups(groups)
     logger.info("Starting update for groups: #{groups.join(', ')}")
-    
+
     begin
       delete_missing = KeeneticMaster::Configuration.delete_missing_routes?
-      
+
       result = KeeneticMaster::UpdateDomainRoutesMinimize.call(groups, delete_missing: delete_missing)
-      
+
       if result.success?
         logger.info(result.value![:message])
         puts result.value![:message]
@@ -62,7 +62,7 @@ class UpdateGroupCommand < BaseClass
         puts "Error: #{result.failure[:message]}"
         exit(1)
       end
-      
+
     rescue StandardError => e
       error_result = handle_error(e, "Group update")
       puts "Error: #{error_result.failure[:message]}"
@@ -72,10 +72,10 @@ class UpdateGroupCommand < BaseClass
 
   def update_all_groups
     logger.info("Starting update for all groups from #{KeeneticMaster::Configuration.domains_file}")
-    
+
     begin
       result = KeeneticMaster::UpdateAllRoutes.call
-      
+
       if result&.failure?
         logger.error("Update failed: #{result.failure}")
         puts "Error: Update failed"
@@ -84,8 +84,9 @@ class UpdateGroupCommand < BaseClass
         logger.info("All groups updated successfully")
         puts "All groups updated successfully"
       end
-      
+
     rescue StandardError => e
+      binding.pry
       error_result = handle_error(e, "All groups update")
       puts "Error: #{error_result.failure[:message]}"
       exit(1)

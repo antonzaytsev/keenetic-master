@@ -18,7 +18,7 @@ class BaseClass
 
   def create_logger(output)
     ensure_log_directory if output.is_a?(String)
-    
+
     logger = Logger.new(output)
     logger.level = log_level
     logger.formatter = log_formatter
@@ -56,7 +56,7 @@ class BaseClass
     error_message = context ? "#{context}: #{error.message}" : error.message
     logger.error(error_message)
     logger.debug(error.backtrace.join("\n")) if error.respond_to?(:backtrace)
-    
-    Failure(message: error_message, error: error)
+
+    Failure(message: error_message, error: error, backtrace: error.backtrace)
   end
 end
