@@ -49,25 +49,23 @@ class UpdateGroupCommand < BaseClass
   def update_specific_groups(groups)
     logger.info("Starting update for groups: #{groups.join(', ')}")
 
-    begin
-      delete_missing = KeeneticMaster::Configuration.delete_missing_routes?
+    delete_missing = KeeneticMaster::Configuration.delete_missing_routes?
 
-      result = KeeneticMaster::UpdateDomainRoutesMinimize.call(groups, delete_missing: delete_missing)
+    result = KeeneticMaster::UpdateDomainRoutesMinimize.call(groups, delete_missing: delete_missing)
 
-      if result.success?
-        logger.info(result.value![:message])
-        puts result.value![:message]
-      else
-        logger.error("Update failed: #{result.failure[:message]}")
-        puts "Error: #{result.failure[:message]}"
-        exit(1)
-      end
-
-    rescue StandardError => e
-      error_result = handle_error(e, "Group update")
-      puts "Error: #{error_result.failure[:message]}"
+    if result.success?
+      logger.info(result.value![:message])
+      puts result.value![:message]
+    else
+      logger.error("Update failed: #{result.failure[:message]}")
+      puts "Error: #{result.failure[:message]}"
       exit(1)
     end
+
+  rescue StandardError => e
+    error_result = handle_error(e, "Group update")
+    puts "Error: #{error_result.failure[:message]}"
+    exit(1)
   end
 
   def update_all_groups
