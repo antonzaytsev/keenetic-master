@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Row, Col, Form, Button, Alert, Badge, Table } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { apiService, DomainGroup } from '../services/api';
 
 const DomainGroups: React.FC = () => {
+  const navigate = useNavigate();
   const [domainGroups, setDomainGroups] = useState<DomainGroup[]>([]);
   const [filteredGroups, setFilteredGroups] = useState<DomainGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +88,13 @@ const DomainGroups: React.FC = () => {
               <i className="fas fa-globe me-2"></i>
               Domain Groups
             </h1>
+            <Button 
+              variant="primary" 
+              onClick={() => navigate('/groups/add')}
+            >
+              <i className="fas fa-plus me-1"></i>
+              Add Group
+            </Button>
           </div>
         </Col>
       </Row>
@@ -261,13 +269,22 @@ const DomainGroups: React.FC = () => {
                               <Link
                                 to={`/groups/${group.name}`}
                                 className="btn btn-outline-primary btn-sm"
+                                title="View Details"
                               >
                                 <i className="fas fa-eye"></i>
+                              </Link>
+                              <Link
+                                to={`/groups/${group.name}/edit`}
+                                className="btn btn-outline-secondary btn-sm"
+                                title="Edit Group"
+                              >
+                                <i className="fas fa-edit"></i>
                               </Link>
                               <Button
                                 variant="outline-danger"
                                 size="sm"
                                 onClick={() => handleDeleteGroup(group.name)}
+                                title="Delete Group"
                               >
                                 <i className="fas fa-trash"></i>
                               </Button>

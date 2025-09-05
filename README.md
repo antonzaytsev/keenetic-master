@@ -13,8 +13,29 @@ A Ruby application for managing Keenetic router static routes for specific domai
 - **Robust Error Handling**: Comprehensive error handling and logging
 - **Test Coverage**: Well-tested codebase with RSpec
 - **Development Tools**: Code quality tools (RuboCop, tests, development utilities)
+- **Hot Reloading**: Development environment with instant file change detection
 
 ## Quick Start
+
+### Development Environment (Hot Reload)
+
+For development with hot reloading, see [DEVELOPMENT.md](DEVELOPMENT.md) for the complete setup guide.
+
+**Quick development setup:**
+```bash
+# 1. Prepare environment (installs dependencies)
+docker compose up --build -d
+
+# 2. In separate terminals, run:
+docker compose exec backend ruby cmd/web_server.rb    # Backend API
+docker compose exec frontend npm start                # Frontend (hot reload)
+
+# 3. Access the application:
+# Frontend: http://localhost:3000 (with hot reload)
+# Backend API: http://localhost:3201
+```
+
+### Production Deployment
 
 ### Using Docker (Recommended)
 
