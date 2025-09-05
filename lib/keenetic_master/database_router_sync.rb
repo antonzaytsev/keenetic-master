@@ -182,7 +182,8 @@ class KeeneticMaster
 
     def generate_routes_for_group(group)
       generated_count = 0
-      interfaces = group.interfaces_list.presence || [ENV['KEENETIC_VPN_INTERFACES'] || 'Wireguard0']
+      interface_string = group.interfaces || ENV['KEENETIC_VPN_INTERFACES'] || 'Wireguard0'
+      interfaces = interface_string.split(',').map(&:strip)
       
       # Get regular domains for this group
       regular_domains = group.domains_dataset.where(type: 'regular').all
@@ -210,12 +211,13 @@ class KeeneticMaster
 
     def resolve_domain_to_routes(domain_string, group, interfaces)
       routes = []
+      domain_mask = group.mask || ENV.fetch('DOMAINS_MASK', '32').to_s
       
       if domain_string =~ /^\d+\.\d+\.\d+\.\d+(?:\/\d+)?$/ || domain_string =~ /^\d+\.\d+\.\d+\.\d+$/
         # IP address or CIDR
         if domain_string.include?('/')
           network, cidr = domain_string.split('/')
-          mask = Constants::MASKS[cidr]
+          mask = Constants::MASKS[cidr.to_s]
         else
           network = domain_string
           mask = Constants::MASKS['32']
@@ -231,9 +233,41 @@ class KeeneticMaster
           }
         end
       else
-        # Domain name - would need DNS resolution
-        # For now, we'll skip DNS resolution and let the existing domain resolution logic handle it
-        # This is a placeholder for future implementation
+        # Domain name - perform DNS resolution
+        begin
+          dns_servers = ENV.fetch('DNS_SERVERS', nil)&.split(',') || ['1.1.1.1', '8.8.8.8']
+          
+          dns_servers.each do |nameserver|
+            begin
+              resolver = Resolv::DNS.new(nameserver: nameserver)
+              ips = resolver.getaddresses(domain_string)
+              
+              ips.each do |ip|
+                next unless ip.is_a?(Resolv::IPv4)
+                
+                ip_str = ip.to_s
+                network = ip_str.sub(/\.\d+$/, '.0')
+                mask = Constants::MASKS[domain_mask.to_s]
+                
+                interfaces.each do |interface|
+                  routes << {
+                    network: network,
+                    mask: mask,
+                    interface: interface,
+                    comment: "[auto:#{group.name}] #{domain_string}",
+                    synced_to_router: false
+                  }
+                end
+              end
+              break # Use the first working DNS server
+            rescue => dns_error
+              @logger.warn("DNS resolution failed for #{domain_string} using #{nameserver}: #{dns_error.message}")
+              next # Try next DNS server
+            end
+          end
+        rescue => e
+          @logger.error("Failed to resolve domain #{domain_string}: #{e.message}")
+        end
       end
 
       routes

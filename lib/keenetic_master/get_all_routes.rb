@@ -17,18 +17,22 @@ class KeeneticMaster
       ]
 
       response = Client.post_rci(body)
+      
+      # Handle case where Client returns a Dry::Monads result
+      if response.respond_to?(:failure?) && response.failure?
+        return Failure(request_failure: response)
+      end
+      
       return Failure(request_failure: response) if response.code != 200
 
-      result = JSON.parse(response.body).dig(0, 'show', 'sc', 'ip', 'route').map do |row|
+      result = JSON.parse(response.body).dig(0, 'show', 'sc', 'ip', 'route')
+      return Failure(error: "No route data in response") unless result
+      
+      routes = result.map do |row|
         row.transform_keys(&:to_sym)
       end
-      # result = JSON.parse(response.body).detect { |el| el['ip'] }.dig('ip', 'route', 'status', 0)
-      #
-      # if result['status'] == 'error'
-      #   return Failure(result['status'] => result['message'])
-      # end
-      #
-      Success(message: result)
+      
+      Success(routes)
     end
   end
 end

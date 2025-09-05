@@ -10,10 +10,6 @@ const api = axios.create({
   },
 });
 
-// Add some debug logging
-console.log('API Base URL:', API_BASE_URL);
-
-// Types
 export interface DomainGroup {
   id: number;
   name: string;
@@ -97,10 +93,35 @@ export const apiService = {
     return response.data;
   },
 
+  // Group operations
+  generateIPs: async (groupName: string): Promise<any> => {
+    const response = await api.post(`/api/domains/${groupName}/generate-ips`);
+    return response.data;
+  },
+
+  syncToRouter: async (groupName: string): Promise<any> => {
+    const response = await api.post(`/api/domains/${groupName}/sync-router`);
+    return response.data;
+  },
+
+  getRouterRoutes: async (groupName: string): Promise<any> => {
+    const response = await api.get(`/api/domains/${groupName}/router-routes`);
+    return response.data;
+  },
+
+  getAllRouterRoutes: async (params?: {
+    interface?: string;
+    proto?: string;
+    network?: string;
+  }): Promise<any> => {
+    const response = await api.get('/api/router-routes', { params });
+    return response.data;
+  },
+
   // IP Addresses / Routes
-  getRoutes: async (params?: { 
-    sync_status?: string; 
-    group_id?: string; 
+  getRoutes: async (params?: {
+    sync_status?: string;
+    group_id?: string;
   }): Promise<Route[]> => {
     const response = await api.get('/api/ip-addresses', { params });
     return response.data;

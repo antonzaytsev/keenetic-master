@@ -7,6 +7,7 @@ import Navigation from './components/Navigation';
 import DomainGroups from './components/DomainGroups';
 import GroupDetails from './components/GroupDetails';
 import IPAddresses from './components/IPAddresses';
+import RouterRoutes from './components/RouterRoutes';
 import SyncStatus from './components/SyncStatus';
 
 import './App.css';
@@ -21,6 +22,7 @@ function App() {
             <Route path="/" element={<DomainGroups />} />
             <Route path="/groups/:groupName" element={<GroupDetails />} />
             <Route path="/ip-addresses" element={<IPAddresses />} />
+            <Route path="/router-routes" element={<RouterRoutes />} />
             <Route path="/sync-status" element={<SyncStatus />} />
           </Routes>
         </div>

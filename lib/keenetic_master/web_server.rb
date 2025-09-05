@@ -8,6 +8,11 @@ require 'yaml'
 require 'json'
 require_relative '../database'
 require_relative '../models'
+require_relative 'update_domain_routes'
+require_relative 'update_routes_database'
+require_relative 'get_group_router_routes'
+require_relative 'get_all_routes'
+require_relative 'database_router_sync'
 
 class KeeneticMaster
   class WebServer < Sinatra::Base
@@ -186,6 +191,245 @@ class KeeneticMaster
           json error: "Domain group not found"
         end
       rescue => e
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint to generate IP addresses for a domain group
+    post '/api/domains/:name/generate-ips' do
+      content_type :json
+      begin
+        group_name = params[:name]
+        group = DomainGroup.find(name: group_name)
+        
+        unless group
+          status 404
+          return json error: "Domain group not found"
+        end
+
+        logger.info("Starting IP generation and database storage for group: #{group_name}")
+        
+        # Count routes before generation
+        routes_before = Route.where(group_id: group.id).count
+        
+        # Use DatabaseRouterSync to generate and store routes in database
+        db_sync = DatabaseRouterSync.new
+        generated_count = db_sync.send(:generate_routes_for_group, group)
+        
+        # Count routes after generation
+        routes_after = Route.where(group_id: group.id).count
+        routes_added = routes_after - routes_before
+        
+        # Now sync the new routes to router if there are any pending
+        sync_result = db_sync.sync_to_router!
+        synced_count = 0
+        
+        if sync_result.success? && sync_result.value!.key?(:synced)
+          synced_count = sync_result.value![:synced]
+        end
+        
+        message = "Successfully generated and stored #{generated_count} routes for group '#{group_name}'. Synced #{synced_count} routes to router."
+        
+        # Log the operation
+        SyncLog.log_success('generate_ips', 'domain_group', group.id)
+        
+        json({
+          success: true, 
+          message: message,
+          statistics: {
+            added: routes_added,
+            deleted: 0, # DatabaseRouterSync doesn't delete during generation
+            total: routes_after,
+            synced_to_router: synced_count
+          }
+        })
+      rescue => e
+        logger.error("Error generating IPs for group '#{params[:name]}': #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+        
+        # Log the error if we have a group
+        if defined?(group) && group
+          SyncLog.log_error('generate_ips', 'domain_group', e.message, group.id)
+        end
+        
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint to sync routes to router for a domain group
+    post '/api/domains/:name/sync-router' do
+      content_type :json
+      begin
+        group_name = params[:name]
+        group = DomainGroup.find(name: group_name)
+        
+        unless group
+          status 404
+          return json error: "Domain group not found"
+        end
+
+        logger.info("Starting router sync for group: #{group_name}")
+        
+        # Get routes that need to be synced for this group
+        pending_routes = Route.where(group_id: group.id, synced_to_router: false)
+        
+        if pending_routes.empty?
+          json({
+            success: true,
+            message: "No routes to sync for group '#{group_name}'",
+            synced_count: 0
+          })
+        else
+          # Use UpdateRoutesDatabase to sync with router
+          result = UpdateRoutesDatabase.new.call
+          
+          if result.success?
+            # Mark routes as synced
+            synced_count = pending_routes.count
+            pending_routes.update(synced_to_router: true, synced_at: Time.now)
+            
+            # Log the operation
+            SyncLog.log_success('sync_router', 'domain_group', group.id)
+            
+            json({
+              success: true,
+              message: "Successfully synced #{synced_count} routes to router for group '#{group_name}'",
+              synced_count: synced_count
+            })
+          else
+            error_message = result.failure.is_a?(Hash) ? result.failure.to_s : result.failure.to_s
+            SyncLog.log_error('sync_router', 'domain_group', error_message, group.id)
+            
+            status 500
+            json error: error_message
+          end
+        end
+      rescue => e
+        logger.error("Error syncing routes to router for group '#{params[:name]}': #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+        
+        # Log the error if we have a group
+        if defined?(group) && group
+          SyncLog.log_error('sync_router', 'domain_group', e.message, group.id)
+        end
+        
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint to get router routes for a domain group
+    get '/api/domains/:name/router-routes' do
+      content_type :json
+      begin
+        group_name = params[:name]
+        group = DomainGroup.find(name: group_name)
+        
+        unless group
+          status 404
+          return json error: "Domain group not found"
+        end
+
+        logger.info("Getting router routes for group: #{group_name}")
+        result = GetGroupRouterRoutes.new.call(group_name)
+        
+        if result.success?
+          data = result.value!
+          router_routes = data[:routes]
+          
+          # Transform router routes to match our expected format
+          formatted_routes = router_routes.map do |route|
+            {
+              network: route[:network] || route[:dest],
+              mask: route[:mask] || route[:genmask],
+              interface: route[:interface] || route[:iface],
+              gateway: route[:gateway],
+              flags: route[:flags],
+              description: "Route to #{route[:network] || route[:dest]} via #{route[:gateway] || 'direct'}"
+            }
+          end
+          
+          json({
+            success: true,
+            routes: formatted_routes,
+            statistics: {
+              total_router_routes: data[:total_router_routes],
+              matching_routes: data[:matching_routes]
+            }
+          })
+        else
+          error_message = result.failure[:error] || "Unknown error occurred"
+          logger.error("Error getting router routes for group '#{group_name}': #{error_message}")
+          
+          status 500
+          json error: error_message
+        end
+      rescue => e
+        logger.error("Error getting router routes for group '#{params[:name]}': #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+        
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint to get all routes from router
+    get '/api/router-routes' do
+      content_type :json
+      begin
+        logger.info("Getting all routes from router")
+        result = GetAllRoutes.new.call
+        
+        if result.success?
+          router_routes = result.value!
+          
+          # Transform router routes to match our expected format
+          formatted_routes = router_routes.map.with_index do |route, index|
+            {
+              id: index, # Router routes don't have database IDs
+              network: route[:network] || route[:dest],
+              mask: route[:mask] || route[:genmask],
+              interface: route[:interface] || route[:iface],
+              gateway: route[:gateway],
+              flags: route[:flags],
+              table: route[:table],
+              dev: route[:dev],
+              src: route[:src],
+              description: "Route to #{route[:network] || route[:dest]} via #{route[:gateway] || 'direct'}"
+            }
+          end
+          
+          # Apply filters if provided
+          if params[:interface] && !params[:interface].empty?
+            formatted_routes = formatted_routes.select { |route| route[:interface] == params[:interface] }
+          end
+          
+          if params[:network] && !params[:network].empty?
+            search_term = params[:network].downcase
+            formatted_routes = formatted_routes.select do |route|
+              route[:network]&.downcase&.include?(search_term)
+            end
+          end
+          
+          json({
+            success: true,
+            routes: formatted_routes,
+            total_count: router_routes.size,
+            filtered_count: formatted_routes.size
+          })
+        else
+          error_message = result.failure[:error] || "Failed to fetch routes from router"
+          logger.error("Error getting all router routes: #{error_message}")
+          
+          status 500
+          json error: error_message
+        end
+      rescue => e
+        logger.error("Error getting all router routes: #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+        
         status 500
         json error: e.message
       end

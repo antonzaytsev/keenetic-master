@@ -33,6 +33,13 @@ const Navigation: React.FC = () => {
               </Nav.Link>
             </LinkContainer>
             
+            <LinkContainer to="/router-routes">
+              <Nav.Link className={location.pathname === '/router-routes' ? 'active' : ''}>
+                <i className="fas fa-router me-1"></i>
+                Router Routes
+              </Nav.Link>
+            </LinkContainer>
+            
             <LinkContainer to="/sync-status">
               <Nav.Link className={location.pathname === '/sync-status' ? 'active' : ''}>
                 <i className="fas fa-sync me-1"></i>

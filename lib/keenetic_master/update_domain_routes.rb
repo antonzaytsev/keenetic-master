@@ -32,7 +32,10 @@ class KeeneticMaster
     private
 
     def retrieve_existing_routes(website)
-      GetAllRoutes.new.call.value![:message].filter_map do |row|
+      result = GetAllRoutes.new.call
+      return [] if result.failure?
+
+      result.value!.filter_map do |row|
         next if row[:comment] !~ /^#{Regexp.escape(PATTERN.sub('{website}', website))}/
 
         if row[:host]
@@ -72,7 +75,7 @@ class KeeneticMaster
           if domain =~ /\//
             comment = "#{PATTERN.sub('{website}', website)} Direct Range"
             network, cidr_notation = domain.split('/')
-            mask = Constants::MASKS.fetch(cidr_notation)
+            mask = Constants::MASKS.fetch(cidr_notation.to_s)
           elsif domain =~ Resolv::IPv4::Regex
             comment = "#{PATTERN.sub('{website}', website)} Direct IP"
             network = domain.sub(/\.\d+$/, '.0')

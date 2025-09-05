@@ -13,12 +13,8 @@ const DomainGroups: React.FC = () => {
   const loadDomainGroups = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('Loading domain groups...');
       const groups = await apiService.getDomainGroups();
-      console.log('Received domain groups:', groups);
-      // Ensure groups is always an array
       const safeGroups = Array.isArray(groups) ? groups : [];
-      console.log('Safe groups:', safeGroups);
       setDomainGroups(safeGroups);
       setFilteredGroups(safeGroups);
       setError(null);
@@ -35,7 +31,7 @@ const DomainGroups: React.FC = () => {
 
   useEffect(() => {
     loadDomainGroups();
-    
+
     // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
       if (!searchTerm.trim()) {
@@ -179,8 +175,8 @@ const DomainGroups: React.FC = () => {
                       {(Array.isArray(filteredGroups) ? filteredGroups : []).map((group) => (
                         <tr key={group.id}>
                           <td>
-                            <Link 
-                              to={`/groups/${group.name}`} 
+                            <Link
+                              to={`/groups/${group.name}`}
                               className="text-decoration-none fw-bold"
                             >
                               <i className="fas fa-layer-group me-2 text-primary"></i>
@@ -211,7 +207,7 @@ const DomainGroups: React.FC = () => {
                             )}
                           </td>
                           <td>
-                            <Link 
+                            <Link
                               to={`/ip-addresses?group_id=${group.id}`}
                               className="text-decoration-none"
                             >
@@ -252,7 +248,7 @@ const DomainGroups: React.FC = () => {
                           <td>
                             {group.statistics.last_updated ? (
                               <small className="text-muted">
-                                {new Date(group.statistics.last_updated).toLocaleDateString()} 
+                                {new Date(group.statistics.last_updated).toLocaleDateString()}
                                 <br />
                                 {new Date(group.statistics.last_updated).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                               </small>
@@ -268,8 +264,8 @@ const DomainGroups: React.FC = () => {
                               >
                                 <i className="fas fa-eye"></i>
                               </Link>
-                              <Button 
-                                variant="outline-danger" 
+                              <Button
+                                variant="outline-danger"
                                 size="sm"
                                 onClick={() => handleDeleteGroup(group.name)}
                               >
