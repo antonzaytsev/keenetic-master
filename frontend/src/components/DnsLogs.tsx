@@ -110,6 +110,17 @@ const DnsLogs: React.FC = () => {
     }
   };
 
+  const getGroupBadgeVariant = (groupName: string) => {
+    if (!groupName || groupName === '-') return 'light';
+    // Use a hash-based color assignment for consistent colors per group
+    const hash = groupName.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0);
+      return a & a;
+    }, 0);
+    const variants = ['primary', 'success', 'info', 'warning', 'dark'];
+    return variants[Math.abs(hash) % variants.length];
+  };
+
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString();
   };
@@ -411,9 +422,13 @@ const DnsLogs: React.FC = () => {
                             <code className="text-primary">{log.domain}</code>
                           </td>
                           <td>
-                            <Badge bg="outline-secondary" className="border">
-                              {log.group_name}
-                            </Badge>
+                            {log.group_name && log.group_name !== '-' ? (
+                              <Badge bg={getGroupBadgeVariant(log.group_name)}>
+                                {log.group_name}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted">-</span>
+                            )}
                           </td>
                           <td className="text-center">
                             {log.routes_count > 0 ? (
