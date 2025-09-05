@@ -208,9 +208,16 @@ class KeeneticMaster
           end
         end
         
-        # Filter by group if provided
+        # Filter by group if provided (accept both group_id and group_name)
         if params[:group_id] && !params[:group_id].empty?
-          routes = routes.where(group_id: params[:group_id])
+          if params[:group_id].match?(/^\d+$/)
+            # It's a numeric ID
+            routes = routes.where(group_id: params[:group_id].to_i)
+          else
+            # It's a group name, find the group first
+            group = DomainGroup.find(name: params[:group_id])
+            routes = routes.where(group_id: group.id) if group
+          end
         end
         
         result = routes.map do |route|

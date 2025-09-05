@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Row, Col, Form, Button, Alert, Badge } from 'react-bootstrap';
+import { Card, Row, Col, Form, Button, Alert, Badge, Table } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { apiService, DomainGroup } from '../services/api';
 
@@ -72,37 +72,6 @@ const DomainGroups: React.FC = () => {
     setSearchTerm('');
   };
 
-  const renderDomainsList = (domains: any) => {
-    let domainsList: string[] = [];
-    
-    if (Array.isArray(domains)) {
-      domainsList = domains;
-    } else if (domains && domains.domains) {
-      domainsList = domains.domains;
-    }
-
-    if (!domainsList || domainsList.length === 0) {
-      return <p className="text-muted mb-0">No domains configured</p>;
-    }
-
-    return (
-      <div className="domain-list">
-        <h6><i className="fas fa-samples me-2"></i>Sample Domains</h6>
-        {domainsList.slice(0, 3).map((domain, index) => (
-          <span key={index} className="domain-item">
-            <i className="fas fa-globe fa-xs me-1"></i>
-            {domain}
-          </span>
-        ))}
-        {domainsList.length > 3 && (
-          <span className="domain-item">
-            <i className="fas fa-ellipsis-h"></i>
-            +{domainsList.length - 3} more
-          </span>
-        )}
-      </div>
-    );
-  };
 
   if (loading) {
     return (
@@ -183,130 +152,139 @@ const DomainGroups: React.FC = () => {
         </Row>
       ) : (
         <Row>
-          {(Array.isArray(filteredGroups) ? filteredGroups : []).map((group) => (
-            <Col key={group.id} md={6} lg={4} className="mb-4">
-              <Card className="domain-group h-100">
-                <Card.Header>
-                  <h5 className="card-title mb-0">
-                    <i className="fas fa-layer-group me-2"></i>
-                    {group.name}
-                  </h5>
-                </Card.Header>
-                <Card.Body>
-                  {/* Statistics Row */}
-                  <Row className="mb-3">
-                    <Col xs={6}>
-                      <div className="text-center">
-                        <div className="h5 mb-0 text-primary">{group.statistics.total_domains}</div>
-                        <small className="text-muted">Domains</small>
-                      </div>
-                    </Col>
-                    <Col xs={6}>
-                      <div className="text-center">
-                        <div className="h5 mb-0 text-info">{group.statistics.total_routes}</div>
-                        <small className="text-muted">IP Routes</small>
-                      </div>
-                    </Col>
-                  </Row>
-
-                  {/* Settings Section */}
-                  {(group.mask || group.interfaces) && (
-                    <div className="settings-section mb-3">
-                      <h6><i className="fas fa-cog me-2"></i>Settings</h6>
-                      {group.mask && (
-                        <div><small className="text-muted">Mask: <code>{group.mask}</code></small></div>
-                      )}
-                      {group.interfaces && (
-                        <div><small className="text-muted">Interfaces: <Badge bg="info">{group.interfaces}</Badge></small></div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Sync Status Section */}
-                  {group.statistics.total_routes > 0 && (
-                    <div className="settings-section mb-3">
-                      <h6><i className="fas fa-sync me-2"></i>Sync Status</h6>
-                      <div className="d-flex justify-content-between">
-                        <small className="text-success">
-                          <i className="fas fa-check me-1"></i>
-                          {group.statistics.synced_routes} synced
-                        </small>
-                        {group.statistics.pending_routes > 0 && (
-                          <small className="text-warning">
-                            <i className="fas fa-clock me-1"></i>
-                            {group.statistics.pending_routes} pending
-                          </small>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Domain Types */}
-                  {group.statistics.total_domains > 0 && (
-                    <div className="mb-3">
-                      <div className="d-flex justify-content-between align-items-center mb-2">
-                        <h6><i className="fas fa-list me-2"></i>Domain Types</h6>
-                        <Link 
-                          to={`/ip-addresses?group_id=${group.id}`}
-                          className="btn btn-sm btn-outline-info"
-                        >
-                          <i className="fas fa-network-wired me-1"></i>
-                          View Routes
-                        </Link>
-                      </div>
-                      
-                      {group.statistics.regular_domains > 0 && (
-                        <div className="d-flex justify-content-between">
-                          <small className="text-muted">
-                            <i className="fas fa-globe me-1"></i>Regular
-                          </small>
-                          <Badge bg="primary">{group.statistics.regular_domains}</Badge>
-                        </div>
-                      )}
-                      
-                      {group.statistics.follow_dns_domains > 0 && (
-                        <div className="d-flex justify-content-between">
-                          <small className="text-muted">
-                            <i className="fas fa-eye me-1"></i>DNS Monitoring
-                          </small>
-                          <Badge bg="success">{group.statistics.follow_dns_domains}</Badge>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Sample Domains */}
-                  {renderDomainsList(group.domains)}
-
-                  {/* Last Updated */}
-                  {group.statistics.last_updated && (
-                    <div className="mt-2">
-                      <small className="text-muted">
-                        <i className="fas fa-clock me-1"></i>
-                        Updated {new Date(group.statistics.last_updated).toLocaleDateString()} {new Date(group.statistics.last_updated).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                      </small>
-                    </div>
-                  )}
-                </Card.Body>
-                <Card.Footer>
-                  <div className="btn-group w-100">
-                    <Button variant="outline-primary" size="sm" disabled>
-                      <i className="fas fa-edit me-1"></i>
-                      Edit
-                    </Button>
-                    <Button 
-                      variant="outline-danger" 
-                      size="sm"
-                      onClick={() => handleDeleteGroup(group.name)}
-                    >
-                      <i className="fas fa-trash me-1"></i>
-                      Delete
-                    </Button>
-                  </div>
-                </Card.Footer>
-              </Card>
-            </Col>
-          ))}
+          <Col>
+            <Card>
+              <Card.Header>
+                <h6 className="mb-0">
+                  <i className="fas fa-list me-2"></i>
+                  Domain Groups
+                </h6>
+              </Card.Header>
+              <Card.Body className="p-0">
+                <div className="table-responsive">
+                  <Table hover className="mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th>Group Name</th>
+                        <th>Domains</th>
+                        <th>DNS Monitoring</th>
+                        <th>IP Routes</th>
+                        <th>Sync Status</th>
+                        <th>Interface</th>
+                        <th>Last Updated</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(Array.isArray(filteredGroups) ? filteredGroups : []).map((group) => (
+                        <tr key={group.id}>
+                          <td>
+                            <Link 
+                              to={`/groups/${group.name}`} 
+                              className="text-decoration-none fw-bold"
+                            >
+                              <i className="fas fa-layer-group me-2 text-primary"></i>
+                              {group.name}
+                            </Link>
+                            {group.mask && (
+                              <div>
+                                <small className="text-muted">Mask: <code>{group.mask}</code></small>
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <Badge bg="primary" className="me-1">
+                              {group.statistics.regular_domains}
+                            </Badge>
+                            <small className="text-muted">regular</small>
+                          </td>
+                          <td>
+                            {group.statistics.follow_dns_domains > 0 ? (
+                              <>
+                                <Badge bg="success" className="me-1">
+                                  {group.statistics.follow_dns_domains}
+                                </Badge>
+                                <small className="text-muted">monitored</small>
+                              </>
+                            ) : (
+                              <span className="text-muted">-</span>
+                            )}
+                          </td>
+                          <td>
+                            <Link 
+                              to={`/ip-addresses?group_id=${group.id}`}
+                              className="text-decoration-none"
+                            >
+                              <Badge bg="info" className="me-1">
+                                {group.statistics.total_routes}
+                              </Badge>
+                              <small className="text-muted">routes</small>
+                            </Link>
+                          </td>
+                          <td>
+                            {group.statistics.total_routes > 0 ? (
+                              <div>
+                                <Badge bg="success" className="me-1">
+                                  {group.statistics.synced_routes}
+                                </Badge>
+                                <small className="text-success">synced</small>
+                                {group.statistics.pending_routes > 0 && (
+                                  <>
+                                    <br />
+                                    <Badge bg="warning" className="me-1">
+                                      {group.statistics.pending_routes}
+                                    </Badge>
+                                    <small className="text-warning">pending</small>
+                                  </>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted">-</span>
+                            )}
+                          </td>
+                          <td>
+                            {group.interfaces ? (
+                              <Badge bg="info">{group.interfaces}</Badge>
+                            ) : (
+                              <span className="text-muted">-</span>
+                            )}
+                          </td>
+                          <td>
+                            {group.statistics.last_updated ? (
+                              <small className="text-muted">
+                                {new Date(group.statistics.last_updated).toLocaleDateString()} 
+                                <br />
+                                {new Date(group.statistics.last_updated).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              </small>
+                            ) : (
+                              <span className="text-muted">-</span>
+                            )}
+                          </td>
+                          <td>
+                            <div className="btn-group">
+                              <Link
+                                to={`/groups/${group.name}`}
+                                className="btn btn-outline-primary btn-sm"
+                              >
+                                <i className="fas fa-eye"></i>
+                              </Link>
+                              <Button 
+                                variant="outline-danger" 
+                                size="sm"
+                                onClick={() => handleDeleteGroup(group.name)}
+                              >
+                                <i className="fas fa-trash"></i>
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
         </Row>
       )}
 
