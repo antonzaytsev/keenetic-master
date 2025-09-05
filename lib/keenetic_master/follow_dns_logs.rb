@@ -1,129 +1,180 @@
 require_relative 'mutate_route_request'
 require_relative '../database'
 require_relative '../models'
+require 'typhoeus'
+require 'json'
 
 class KeeneticMaster
   class FollowDnsLogs < MutateRouteRequest
-    WAIT = 1
+    WAIT = 10
     DOMAINS_FILE_CACHE_TTL = 5
+    API_TIMEOUT = 30
 
-    def call(dns_file)
-      if !File.exist?(dns_file) || !File.readable?(dns_file)
-        puts "Не указаны или недоступен файл в переменной окружения DNS_LOGS_PATH `#{dns_file}`"
-        return
-      end
+    def self.call(base_api_url = nil)
+      new.call(base_api_url)
+    end
+
+    def initialize
+      super
+      @last_fetch_time = nil
+    end
+
+    def call(base_api_url = nil)
+      @base_api_url = base_api_url || ENV['DNS_LOGS_API_URL'] || 'http://192.168.0.30:8080/api/search'
 
       if follow_dns.blank?
         puts "Нет ни одной группы в базе данных с параметром follow_dns"
         return
       end
 
-      last_position = File.size(dns_file)
+      logger.info "Начато слежение за DNS логами через API: #{@base_api_url}"
 
       while true
-        current_size = File.size(dns_file)
-        if current_size == last_position
-          sleep WAIT
-          next
-        end
-
-        # If file was truncated, reset position
-        if current_size < last_position
-          last_position = 0
-          sleep WAIT
-          next
-        end
-
-        # Read only new content
-        File.open(dns_file, 'r') do |file|
-          file.seek(last_position)
-          new_content = file.read
-          if new_content.empty?
-            sleep WAIT
-            next
+        begin
+          logs_data = fetch_dns_logs
+          if logs_data
+            process_api_logs(logs_data)
+            update_last_fetch_time
           end
-
-          process_logs(new_content)
+        rescue => e
+          logger.error "Ошибка при получении DNS логов: #{e.message}"
         end
-        last_position = current_size
 
         sleep WAIT
       end
 
     rescue Interrupt
+      logger.info "Слежение за DNS логами прервано"
     end
 
     private
 
-    def process_logs(new_content)
+    def update_last_fetch_time
+      @last_fetch_time = Time.now
+      logger.debug "Updated last fetch time to #{@last_fetch_time.utc.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+    end
+
+    def fetch_dns_logs
+      since_time = @last_fetch_time || (Time.now - 10 * 60) # Default to 10 minutes ago
+      since_param = since_time.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+      api_url = "#{@base_api_url}?since=#{since_param}"
+
+      logger.info "Запрос DNS логов с #{api_url}"
+
+      response = Typhoeus.get(api_url,
+        timeout: API_TIMEOUT,
+        connecttimeout: 10,
+        headers: {
+          "Accept" => "application/json",
+          "User-Agent" => "KeeneticMaster/#{KeeneticMaster::VERSION}"
+        }
+      )
+
+      unless response.success?
+        logger.error "Ошибка запроса к API: HTTP #{response.code} - #{response.body}"
+        return []
+      end
+
+      JSON.parse(response.body).dig('results')
+
+    rescue JSON::ParserError => e
+      logger.error "Ошибка парсинга JSON ответа: #{e.message}"
+      []
+    end
+
+    def process_api_logs(logs_data)
+      return if logs_data.empty?
+
+      logger.debug "Обработка #{logs_data.size} записей DNS логов"
+
       routes_to_update = []
       processed_domains = {}
 
-      new_content.lines.each do |line|
-        group = JSON.parse(line) rescue nil
-        next if group.nil? || group['ip_addresses'].blank?
+      logs_data.each do |entry|
+        process_log_entry(entry, routes_to_update, processed_domains)
+      end
 
-        requested_domain = group['request']['query'][0..-2]
-        domain_matched = false
+      apply_route_updates(routes_to_update, processed_domains)
+    end
 
-        follow_dns.each do |website, data|
-          data[:domains].each do |domain|
-            if requested_domain == domain || requested_domain =~ /\.#{Regexp.escape(domain)}$/
-              domain_matched = true
-              routes_count = 0
+    def process_log_entry(entry, routes_to_update, processed_domains)
+      # Handle both string (line from file) and hash (API response) formats
+      group = case entry
+      when String
+        JSON.parse(entry) rescue nil
+      when Hash
+        entry
+      else
+        nil
+      end
 
-              group['ip_addresses'].each do |ip_address|
-                data[:interfaces].each do |interface|
-                  route = {
-                    network: ip_address.sub(/\.\d+$/, '.0'),
-                    mask: Constants::MASKS.fetch('24'),
-                    interface: CorrectInterface.call(interface),
-                    comment: "[auto:#{website}] #{requested_domain}",
-                    auto: true
-                  }
-                  routes_to_update << route
-                  routes_count += 1
-                end
-              end
+      return if group.nil? || group['ip_addresses'].blank?
 
-              # Log the processing event
-              DnsProcessingLog.log_processing_event(
-                action: 'processed',
-                domain: requested_domain,
-                group_name: website,
-                routes_count: routes_count,
-                ip_addresses: group['ip_addresses'],
-                comment: "[auto:#{website}] #{requested_domain}"
-              )
+      requested_domain = group['request']['query'][0..-2]
+      domain_matched = false
 
-              processed_domains[requested_domain] ||= { website: website, routes_count: 0 }
-              processed_domains[requested_domain][:routes_count] += routes_count
-            end
+      follow_dns.each do |website, data|
+        data[:domains].each do |domain|
+          if requested_domain == domain || requested_domain =~ /\.#{Regexp.escape(domain)}$/
+            domain_matched = true
+            routes_count = add_routes_for_domain(group, website, requested_domain, data, routes_to_update)
+
+            # Log the processing event
+            DnsProcessingLog.log_processing_event(
+              action: 'processed',
+              domain: requested_domain,
+              group_name: website,
+              routes_count: routes_count,
+              ip_addresses: group['ip_addresses'],
+              comment: "[auto:#{website}] #{requested_domain}"
+            )
+
+            processed_domains[requested_domain] ||= { website: website, routes_count: 0 }
+            processed_domains[requested_domain][:routes_count] += routes_count
           end
-        end
-
-        # Log domains that didn't match any follow_dns domains
-        unless domain_matched
-          DnsProcessingLog.log_processing_event(
-            action: 'skipped',
-            domain: requested_domain,
-            group_name: 'none',
-            routes_count: 0,
-            ip_addresses: group['ip_addresses'],
-            comment: 'No matching follow_dns domain found'
-          )
         end
       end
 
-      logger.info "Обновлено #{routes_to_update.size} routes_to_update"
+      # Log domains that didn't match any follow_dns domains
+      unless domain_matched
+        DnsProcessingLog.log_processing_event(
+          action: 'skipped',
+          domain: requested_domain,
+          group_name: 'none',
+          routes_count: 0,
+          ip_addresses: group['ip_addresses'],
+          comment: 'No matching follow_dns domain found'
+        )
+      end
+    end
 
+    def add_routes_for_domain(group, website, requested_domain, data, routes_to_update)
+      routes_count = 0
+
+      group['ip_addresses'].each do |ip_address|
+        data[:interfaces].each do |interface|
+          route = {
+            network: ip_address.sub(/\.\d+$/, '.0'),
+            mask: Constants::MASKS.fetch('24'),
+            interface: CorrectInterface.call(interface),
+            comment: "[auto:#{website}] #{requested_domain}",
+            auto: true
+          }
+          routes_to_update << route
+          routes_count += 1
+        end
+      end
+
+      routes_count
+    end
+
+    def apply_route_updates(routes_to_update, processed_domains)
+      logger.info "routes_to_update: #{routes_to_update.size}"
       return if routes_to_update.blank?
 
-      # Apply route changes and log the overall result
       result = ApplyRouteChanges.call(routes_to_update)
-      
+
       if result.success?
-        # Log successful route additions
         processed_domains.each do |domain, info|
           DnsProcessingLog.log_processing_event(
             action: 'added',
@@ -149,20 +200,21 @@ class KeeneticMaster
       end
     end
 
+
     def follow_dns
       if @follow_dns && @follow_dns[:cached_at] && @follow_dns[:cached_at] > (Time.now - DOMAINS_FILE_CACHE_TTL)
         return @follow_dns[:websites]
       end
 
       websites = {}
-      
+
       # Find domain groups that have follow_dns domains
       DomainGroup.all.each do |group|
         follow_dns_domains = group.domains_dataset.where(type: 'follow_dns').map(:domain)
         next if follow_dns_domains.empty?
 
         interfaces = group.interfaces_list.presence || ENV['KEENETIC_VPN_INTERFACES']&.split(',')&.map(&:strip) || ['Wireguard0']
-        
+
         websites[group.name] = {
           domains: follow_dns_domains,
           interfaces: interfaces
