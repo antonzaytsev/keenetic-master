@@ -17,10 +17,15 @@ gem "dotenv", "~> 2.8"
 # Web framework
 gem "sinatra", "~> 3.0"
 gem "sinatra-contrib", "~> 3.0"
+gem "sinatra-cross_origin", "~> 0.4"
 gem "puma", "~> 6.0"
 
 # Data handling
 gem "json", "~> 2.6"
+
+# Database
+gem "sequel", "~> 5.68"
+gem "pg", "~> 1.5"
 
 group :development do
   gem "pry", "~> 0.14"

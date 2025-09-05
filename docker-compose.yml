@@ -1,5 +1,22 @@
 name: keenetic-master
 services:
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: keenetic_master
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   app:
     build:
       context: .
@@ -13,6 +30,15 @@ services:
       - .:/app
       - bundle_cache:/usr/local/bundle
     env_file: ".env"
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=keenetic_master
+      - DATABASE_USERNAME=postgres
+      - DATABASE_PASSWORD=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
     command: sh -c "bundle install && ruby cmd/crontab.rb"
 
   dns-logs:
@@ -29,9 +55,18 @@ services:
       - bundle_cache:/usr/local/bundle
       - ${DNS_LOGS_HOST_PATH:-./tmp/dns.log}:${DNS_LOGS_CONTAINER_PATH:-/app/logs/dns.log}
     env_file: ".env"
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=keenetic_master
+      - DATABASE_USERNAME=postgres
+      - DATABASE_PASSWORD=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
     command: sh -c "bundle install && ruby cmd/follow_dns_logs.rb"
 
-  web:
+  backend:
     build:
       context: .
       args:
@@ -41,15 +76,37 @@ services:
     tty: true
     restart: always
     ports:
-      - "${WEB_HOST_PORT:-4567}:${WEB_PORT:-4567}"
+      - "${WEB_HOST_PORT:-4568}:${WEB_PORT:-4568}"
     volumes:
       - .:/app
       - bundle_cache:/usr/local/bundle
     env_file: ".env"
     environment:
-      - WEB_PORT=${WEB_PORT:-4567}
+      - WEB_PORT=${WEB_PORT:-4568}
       - WEB_BIND=${WEB_BIND:-0.0.0.0}
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=keenetic_master
+      - DATABASE_USERNAME=postgres
+      - DATABASE_PASSWORD=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
     command: sh -c "bundle install && ruby cmd/web_server.rb"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: keenetic-master-frontend:1.0.0
+    restart: always
+    ports:
+      - "${FRONTEND_HOST_PORT:-4567}:3000"
+    environment:
+      - REACT_APP_API_BASE_URL=http://backend:${WEB_PORT:-4568}
+    depends_on:
+      - backend
 
 volumes:
   bundle_cache:
+  postgres_data:

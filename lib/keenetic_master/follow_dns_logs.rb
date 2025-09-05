@@ -1,4 +1,6 @@
 require_relative 'mutate_route_request'
+require_relative '../database'
+require_relative '../models'
 
 class KeeneticMaster
   class FollowDnsLogs < MutateRouteRequest
@@ -12,7 +14,7 @@ class KeeneticMaster
       end
 
       if follow_dns.blank?
-        puts "Нет ни одной группы в файле #{ENV.fetch('DOMAINS_FILE')} с параметром follow_dns"
+        puts "Нет ни одной группы в базе данных с параметром follow_dns"
         return
       end
 
@@ -96,13 +98,17 @@ class KeeneticMaster
       end
 
       websites = {}
-      YAML.load_file(ENV.fetch('DOMAINS_FILE')).each do |website, data|
-        next unless data.is_a?(Hash)
-        next if data['follow_dns'].blank?
+      
+      # Find domain groups that have follow_dns domains
+      DomainGroup.all.each do |group|
+        follow_dns_domains = group.domains_dataset.where(type: 'follow_dns').map(:domain)
+        next if follow_dns_domains.empty?
 
-        websites[website] = {
-          domains: data['follow_dns'],
-          interfaces: (data['settings']&.dig('interfaces') || ENV['KEENETIC_VPN_INTERFACES']).split(',').map(&:strip),
+        interfaces = group.interfaces_list.presence || ENV['KEENETIC_VPN_INTERFACES']&.split(',')&.map(&:strip) || ['Wireguard0']
+        
+        websites[group.name] = {
+          domains: follow_dns_domains,
+          interfaces: interfaces
         }
       end
 

@@ -2,6 +2,8 @@ require 'yaml'
 require 'resolv'
 require 'json'
 require 'typhoeus'
+require_relative '../database'
+require_relative '../models'
 
 class KeeneticMaster
   class UpdateDomainRoutesMinimize < MutateRouteRequest
@@ -165,7 +167,10 @@ class KeeneticMaster
     end
 
     def load_domains_for_website(website)
-      YAML.load_file(Configuration.domains_file)[website]
+      group = DomainGroup.find(name: website)
+      return nil unless group
+      
+      group.to_hash
     end
 
     def extract_settings_from_domains(domains)

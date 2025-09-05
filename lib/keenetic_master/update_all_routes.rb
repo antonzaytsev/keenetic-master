@@ -1,14 +1,14 @@
+require_relative 'update_routes_database'
+
 class KeeneticMaster
   class UpdateAllRoutes < BaseClass
     def call
-      websites = YAML.load_file(ENV.fetch('DOMAINS_FILE'))&.keys || []
+      updater = UpdateRoutesDatabase.new
 
-      if ENV.fetch('MINIMIZE', false)
-        UpdateDomainRoutesMinimize.call(websites, delete_missing: ENV['DELETE_ROUTES'].nil? || ENV['DELETE_ROUTES'] == 'true')
+      if Configuration.minimize_mode?
+        updater.call_minimize(delete_missing: Configuration.delete_missing_routes?)
       else
-        websites.each do |website|
-          UpdateDomainRoutes.call(website)
-        end
+        updater.call_all
       end
     end
   end

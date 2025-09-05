@@ -10,7 +10,7 @@ class CronTabRunner < BaseClass
 
   def run
     logger.info("Starting KeeneticMaster cron job. PID: #{Process.pid}")
-    logger.info("Domains file: #{KeeneticMaster::Configuration.domains_file}")
+    logger.info("Using database for domain groups management")
 
     while @running
       begin
@@ -59,5 +59,6 @@ end
 
 if $PROGRAM_NAME == __FILE__
   runner = CronTabRunner.new
+  puts '>>>>>>>>> crontab ran'
   runner.run
 end

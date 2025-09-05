@@ -17,7 +17,7 @@ class KeeneticMaster
       end
 
       def domains_file
-        required_env('DOMAINS_FILE')
+        ENV['DOMAINS_FILE'] || 'config/domains.yml'
       end
 
       def dns_servers
@@ -52,9 +52,10 @@ class KeeneticMaster
         required_env('KEENETIC_LOGIN')
         required_env('KEENETIC_PASSWORD')
         required_env('KEENETIC_HOST')
-        required_env('DOMAINS_FILE')
-
-        unless File.exist?(domains_file)
+        
+        # DOMAINS_FILE is now optional since we use database
+        # Only validate it exists if it's explicitly set for migration purposes
+        if ENV['DOMAINS_FILE'] && !File.exist?(domains_file)
           raise ConfigurationError, "Domains file not found: #{domains_file}"
         end
 

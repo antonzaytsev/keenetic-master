@@ -69,7 +69,7 @@ class UpdateGroupCommand < BaseClass
   end
 
   def update_all_groups
-    logger.info("Starting update for all groups from #{KeeneticMaster::Configuration.domains_file}")
+    logger.info("Starting update for all groups from database")
 
     begin
       result = KeeneticMaster::UpdateAllRoutes.call

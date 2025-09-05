@@ -1,4 +1,6 @@
 require 'yaml'
+require_relative '../database'
+require_relative '../models'
 
 class KeeneticMaster
   class UpdateDomainRoutes < BaseClass
@@ -44,20 +46,13 @@ class KeeneticMaster
     end
 
     def routes_to_exist(website, interface)
-      domains = YAML.load_file(ENV.fetch('DOMAINS_FILE'))[website]
+      group = DomainGroup.find(name: website)
+      return [] unless group
 
-      domain_mask = ENV.fetch('DOMAINS_MASK', '32').to_s
-      interface = interface.presence || ENV['KEENETIC_VPN_INTERFACE'] || ENV['KEENETIC_VPN_INTERFACES']
+      domain_mask = group.mask || ENV.fetch('DOMAINS_MASK', '32').to_s
+      interface = group.interfaces || interface.presence || ENV['KEENETIC_VPN_INTERFACE'] || ENV['KEENETIC_VPN_INTERFACES']
 
-      if domains.is_a?(Hash)
-        settings_mask = domains.dig('settings', 'mask')
-        domain_mask = settings_mask.to_s if settings_mask.present?
-
-        settings_interface = domains.dig('settings', 'interfaces')
-        interface = settings_interface if settings_interface.present?
-
-        domains = domains['domains']
-      end
+      domains = group.domains_dataset.where(type: 'regular').map(:domain)
 
       domains = github_ips(domains) if website == 'github'
       return [] if domains.nil?

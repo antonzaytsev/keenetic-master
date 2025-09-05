@@ -1,0 +1,306 @@
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-sync me-2"></i>
+                Sync Status
+            </h1>
+            <div class="d-flex align-items-center">
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="location.reload()">
+                    <i class="fas fa-refresh me-1"></i>
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sync Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-network-wired fa-2x text-primary mb-2"></i>
+                <h5 class="card-title"><%= @sync_stats[:total_routes] %></h5>
+                <p class="card-text text-muted">Total Routes</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                <h5 class="card-title"><%= @sync_stats[:synced_routes] %></h5>
+                <p class="card-text text-muted">Synced Routes</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                <h5 class="card-title"><%= @sync_stats[:pending_sync] %></h5>
+                <p class="card-text text-muted">Pending Sync</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-exclamation-triangle fa-2x text-danger mb-2"></i>
+                <h5 class="card-title"><%= @sync_stats[:stale_routes] %></h5>
+                <p class="card-text text-muted">Stale Routes</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Failures -->
+<% if @recent_failures.any? %>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Recent Failures (Last 24 hours)
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <% @recent_failures.first(5).each do |log| %>
+                            <div class="col-12 mb-2">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong><%= log.operation %></strong> 
+                                        <span class="text-muted">on</span> 
+                                        <strong><%= log.resource_type %></strong>
+                                        <% if log.resource_id %>
+                                            <span class="text-muted">(ID: <%= log.resource_id %>)</span>
+                                        <% end %>
+                                        <br>
+                                        <small class="text-danger"><%= log.error_message %></small>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock me-1"></i>
+                                        <%= log.created_at.strftime('%m/%d %H:%M') %>
+                                    </small>
+                                </div>
+                            </div>
+                            <% unless log == @recent_failures.first(5).last %>
+                                <hr class="my-2">
+                            <% end %>
+                        <% end %>
+                    </div>
+                    <% if @recent_failures.count > 5 %>
+                        <div class="text-center mt-3">
+                            <small class="text-muted">
+                                ... and <%= @recent_failures.count - 5 %> more failures
+                            </small>
+                        </div>
+                    <% end %>
+                </div>
+            </div>
+        </div>
+    </div>
+<% end %>
+
+<!-- Sync Logs -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Recent Sync Operations
+                    </h6>
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <select class="form-select form-select-sm" id="operationFilter">
+                                <option value="">All Operations</option>
+                                <option value="sync">Sync</option>
+                                <option value="add">Add</option>
+                                <option value="delete">Delete</option>
+                                <option value="update">Update</option>
+                            </select>
+                        </div>
+                        <div class="me-3">
+                            <select class="form-select form-select-sm" id="statusFilter">
+                                <option value="">All Statuses</option>
+                                <option value="success">Success</option>
+                                <option value="error">Error</option>
+                            </select>
+                        </div>
+                        <small class="text-muted">
+                            <span id="visibleLogs"><%= @recent_logs.count %></span> of 
+                            <span id="totalLogs"><%= @recent_logs.count %></span> logs
+                        </small>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <% if @recent_logs.empty? %>
+                    <div class="text-center py-5">
+                        <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                        <h6 class="text-muted">No sync logs found</h6>
+                        <p class="text-muted">Sync operations will appear here once they start running</p>
+                    </div>
+                <% else %>
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Operation</th>
+                                    <th>Resource</th>
+                                    <th>Status</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="syncLogsTable">
+                                <% @recent_logs.each do |log| %>
+                                    <tr class="log-row" 
+                                        data-operation="<%= log.operation %>" 
+                                        data-status="<%= log.success ? 'success' : 'error' %>">
+                                        <td>
+                                            <small class="text-muted">
+                                                <i class="fas fa-clock me-1"></i>
+                                                <span title="<%= log.created_at.strftime('%B %d, %Y at %I:%M:%S %p') %>">
+                                                    <%= log.created_at.strftime('%m/%d/%y %H:%M:%S') %>
+                                                </span>
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">
+                                                <%= log.operation.upcase %>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div>
+                                                <strong><%= log.resource_type %></strong>
+                                                <% if log.resource_id %>
+                                                    <br><small class="text-muted">ID: <%= log.resource_id %></small>
+                                                <% end %>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <% if log.success %>
+                                                <span class="status-badge status-synced">
+                                                    <i class="fas fa-check me-1"></i>Success
+                                                </span>
+                                            <% else %>
+                                                <span class="status-badge status-unsynced">
+                                                    <i class="fas fa-times me-1"></i>Error
+                                                </span>
+                                            <% end %>
+                                        </td>
+                                        <td>
+                                            <% if log.error_message %>
+                                                <small class="text-danger">
+                                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                                    <%= log.error_message %>
+                                                </small>
+                                            <% else %>
+                                                <small class="text-success">
+                                                    <i class="fas fa-check-circle me-1"></i>
+                                                    Operation completed successfully
+                                                </small>
+                                            <% end %>
+                                        </td>
+                                    </tr>
+                                <% end %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% end %>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Filter functionality for sync logs
+    const operationFilter = document.getElementById('operationFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const logRows = document.querySelectorAll('.log-row');
+    const visibleLogs = document.getElementById('visibleLogs');
+    const totalLogs = document.getElementById('totalLogs');
+
+    function filterLogs() {
+        const operation = operationFilter ? operationFilter.value : '';
+        const status = statusFilter ? statusFilter.value : '';
+        let visible = 0;
+
+        logRows.forEach(row => {
+            const rowOperation = row.getAttribute('data-operation');
+            const rowStatus = row.getAttribute('data-status');
+            
+            const matchesOperation = operation === '' || rowOperation === operation;
+            const matchesStatus = status === '' || rowStatus === status;
+            
+            const shouldShow = matchesOperation && matchesStatus;
+            
+            if (shouldShow) {
+                row.style.display = 'table-row';
+                visible++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        if (visibleLogs) {
+            visibleLogs.textContent = visible;
+        }
+
+        // Show/hide no results message
+        toggleNoResultsMessage(visible === 0 && (operation !== '' || status !== ''));
+    }
+
+    // Add event listeners
+    if (operationFilter) {
+        operationFilter.addEventListener('change', filterLogs);
+    }
+
+    if (statusFilter) {
+        statusFilter.addEventListener('change', filterLogs);
+    }
+
+    function toggleNoResultsMessage(show) {
+        let noResultsMsg = document.getElementById('noResultsMessage');
+        const tableBody = document.getElementById('syncLogsTable');
+        
+        if (show && !noResultsMsg) {
+            noResultsMsg = document.createElement('tr');
+            noResultsMsg.id = 'noResultsMessage';
+            noResultsMsg.innerHTML = `
+                <td colspan="5" class="text-center py-4">
+                    <i class="fas fa-search fa-2x text-muted mb-3"></i>
+                    <h6 class="text-muted">No matching logs found</h6>
+                    <p class="text-muted mb-0">Try adjusting your filters</p>
+                </td>
+            `;
+            tableBody.appendChild(noResultsMsg);
+        } else if (!show && noResultsMsg) {
+            noResultsMsg.remove();
+        }
+    }
+
+    // Auto-refresh every 15 seconds (more frequent for sync status)
+    setInterval(() => {
+        const hasActiveFilters = (operationFilter && operationFilter.value !== '') || 
+                                (statusFilter && statusFilter.value !== '');
+        
+        if (!hasActiveFilters) {
+            location.reload();
+        }
+    }, 15000);
+
+    // Real-time update of timestamps
+    setInterval(() => {
+        const timestampElements = document.querySelectorAll('[title*="at"]');
+        timestampElements.forEach(elem => {
+            // Could add relative time updates here if needed
+        });
+    }, 60000); // Update every minute
+</script>

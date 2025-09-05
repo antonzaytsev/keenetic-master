@@ -1,0 +1,383 @@
+---
+reddit:
+  - reddit.com
+  - www.reddit.com
+  - redd.it
+  - reddit.app.link
+  - reddit.com
+  - redditblog.com
+  - reddithelp.com
+  - redditinc.com
+  - redditmail.com
+  - redditmedia.com
+  - redditspace.com
+  - redditstatic.com
+  - redditstatus.com
+discord:
+  - discord.com
+  - discord.gg
+  - discord.media
+  - discordapp.net
+  - discordcdn.com
+  - discordstatus.com
+  - discordpartygames.com
+  - discord-activities.com
+  - discordactivities.com
+  - discordsays.com
+  - discordapp.io
+  - dis.gd
+  - discord.co
+  - discord.com
+  - discord.design
+  - discord.dev
+  - discord.gg
+  - discord.gift
+  - discord.gifts
+  - discord.media
+  - discord.new
+  - discord.store
+  - discord.tools
+  - discord-activities.com
+  - discordactivities.com
+  - discordapp.com
+  - discordapp.net
+  - discordmerch.com
+  - discordpartygames.com
+  - discordsays.com
+  - discordstatus.com
+rutracker:
+  domains:
+    - rutracker.org
+    - static.rutracker.cc
+    - feed.rutracker.cc
+    - rutracker.wiki
+    - bt3.t-ru.org
+  follow_dns:
+    - rutracker.org
+    - rutracker.wiki
+    - t-ru.org
+kinopub:
+  - kino.pub
+  - fuckrkn2.link
+notion:
+  - notion.com
+redshieldvpn:
+  - redshieldvpn.com
+pron:
+  settings:
+    interfaces: latvia
+  domains:
+    - pornolab.net
+    - pornhub.com
+    - sexlikereal.com
+    - www.sexlikereal.com
+ibkr:
+  - ibkr.com
+  - www.ibkr.com
+  - interactivebrokers.com
+  - www.interactivebrokers.com
+  - interactivebrokers.co.uk
+  - www.interactivebrokers.co.uk
+  - interactivebrokers.com.hk
+  - www.interactivebrokers.com.hk
+jetbrains:
+  domains:
+    - jetbrains.com
+    - www.jetbrains.com
+    - download.jetbrains.com
+    - downloads.marketplace.jetbrains.com
+    - download-cdn.jetbrains.com
+    - resources.jetbrains.com
+    - plugins.jetbrains.com
+    - sales.jetbrains.com
+  follow_dns:
+    - jetbrains.com
+sentry:
+  - sentry.io
+  - www.sentry.io
+  - docs.sentry.io
+  - sentry.dev
+  - jiffyshirts.sentry.io
+plex:
+  - plex.tv
+  - www.plex.tv
+  - watch.plex.tv
+fb:
+  settings:
+    mask: 24
+    interfaces: latvia
+  domains:
+    - instagram.com
+    - www.instagram.com
+    - static.cdninstagram.com
+    - facebook.com
+    - gateway.facebook.com
+    - fb.com
+    - m.facebook.com
+    - l.facebook.com
+    - static.xx.fbcdn.net
+    - scontent-arn1-1.cdninstagram.com
+    - scontent-arn2-1.cdninstagram.com
+    - scontent-ams1-1.xx.fbcdn.net
+    - scontent-ams2-1.xx.fbcdn.net
+    - scontent-ams3-1.xx.fbcdn.net
+    - scontent-ams4-1.xx.fbcdn.net
+    - scontent-ams1-1.cdninstagram.com
+    - scontent-ams1-2.cdninstagram.com
+    - scontent-ams2-1.cdninstagram.com
+    - scontent-ams2-2.cdninstagram.com
+    - scontent-ams3-1.cdninstagram.com
+    - scontent-ams3-2.cdninstagram.com
+    - scontent-ams4-1.cdninstagram.com
+    - scontent-ams4-2.cdninstagram.com
+    - scontent-ams5-1.cdninstagram.com
+    - scontent-ams5-2.cdninstagram.com
+    - scontent-fra1-1.cdninstagram.com
+    - scontent-fra2-1.cdninstagram.com
+    - scontent-fra3-1.cdninstagram.com
+    - scontent-fra4-1.cdninstagram.com
+    - scontent-fra5-1.cdninstagram.com
+    - scontent-fra1-2.cdninstagram.com
+    - scontent-fra2-2.cdninstagram.com
+    - scontent-fra3-2.cdninstagram.com
+    - scontent-fra4-2.cdninstagram.com
+    - scontent-fra5-2.cdninstagram.com
+    - scontent-waw1-1.cdninstagram.com
+    - scontent-waw1-2.cdninstagram.com
+    - scontent-waw2-1.cdninstagram.com
+    - scontent-waw2-2.cdninstagram.com
+    - scontent-waw3-1.cdninstagram.com
+    - scontent-waw3-2.cdninstagram.com
+    - scontent-waw4-1.cdninstagram.com
+    - scontent-waw4-2.cdninstagram.com
+    - scontent-waw5-1.cdninstagram.com
+    - scontent-waw5-2.cdninstagram.com
+    - graph.instagram.com
+    - edge-chat.instagram.com
+    - whatsapp.com
+  follow_dns:
+    - facebook.com
+    - whatsapp.com
+    - instagram.com
+    - cdninstagram.com
+    - fbcdn.net
+    - fb.com
+twitter:
+  - twitter.com
+  - x.com
+  - abs.twimg.com
+  - abs-0.twimg.com
+  - api.x.com
+tuya:
+  - tuya.com
+  - www.tuya.com
+  - developer.tuya.com
+  - apigw.tuyaeu.com
+linkedin:
+  - linkedin.com
+  - www.linkedin.com
+spotify:
+  - spotify.com
+  - www.spotify.com
+youtube:
+  settings:
+    mask: 32
+    interfaces: latvia
+  domains:
+    - youtu.be
+    - yt.be
+    - ytimg.com
+    - i.ytimg.com
+    - play.google.com
+    - youtube.googleapis.com
+    - youtubei.googleapis.com
+    - youtube-ui.l.google.com
+    - ggpht.com
+    - wide-youtube.l.google.com
+    - withyoutube.com
+    - yt3.ggpht.com
+    - yt4.ggpht.com
+    - ytimg.l.google.com
+    - nhacmp3youtube.com
+    - googleusercontent.com
+  follow_dns:
+    - googleapis.com
+    - youtube.com
+    - googlevideo.com
+    - ytimg.com
+    - ggpht.com
+    - gstatic.com
+medium:
+  - medium.com
+sidekiq:
+  - enterprise.contribsys.com
+random:
+  - nyse.com
+  - www.nyse.com
+  - cash.app
+homeconnect:
+  - home-connect.com
+  - www.home-connect.com
+  - api.home-connect.com
+  - api-rus.home-connect.com
+  - services.home-connect.com
+  - singlekey-id.com
+  - www.singlekey-id.com
+pacman:
+  - mirror.ufro.cl
+  - mirror.futureweb.be
+brawlstars:
+  domains:
+    - brawlstars.com
+    - brawlstarsgame.com
+    - game.brawlstarsgame.com
+    - supercell.com
+    - supercellid.com
+  follow_dns:
+    - brawlstars.com
+    - supercell.com
+    - supercellid.com
+    - brawlstarsgame.com
+debian:
+  - deb.debian.org
+aitools:
+  settings:
+    interfaces: netherlands
+  domains:
+    - codeium.com
+    - deno.land
+    - anthropic.com
+    - claude.ai
+    - zencoder.ai
+    - cursor.com
+    - notebooklm.google
+    - notebooklm.google.com
+    - gemini.google.com
+    - chatgpt.com
+    - ab.chatgpt.com
+    - openai.com
+    - platform.openai.com
+    - auth.openai.com
+    - kaleido.ai
+  follow_dns:
+    - chatgpt.com
+    - openai.com
+    - zencoder.ai
+    - notebooklm.google
+    - notebooklm.google.com
+    - zencoder.ai
+    - anthropic.com
+github:
+  domains:
+    - hooks
+    - web
+    - api
+    - git
+    - packages
+    - pages
+    - importer
+    - copilot
+work:
+  domains:
+    - jiffyshirts.grafana.net
+    - sdtechdev.com
+    - staging.sdtechdev.com
+    - awswaf.com
+    - eu-west-1.token.awswaf.com
+    - static.captcha.awswaf.com
+    - efc374ed5bcf.428c5e4b.eu-west-1.token.awswaf.com
+    - aws.amazon.com
+    - oidc.us-east-1.amazonaws.com
+    - us-east-1.console.aws.amazon.com
+    - ec2.us-east-1.amazonaws.com
+    - telemetry.cell-0.us-east-1.prod.tangerinebox.console.aws.a2z.com
+    - sts.us-east-1.amazonaws.com
+    - d-9067f580e8.awsapps.com
+    - stripe.com
+    - api.stripe.com
+    - ngrok.com
+    - ngrok-agent.com
+    - crl.ngrok-agent.com
+    - connect.ngrok-agent.com
+    - update.equinox.io.herokudns.com
+    - venmo.com
+    - docker.elastic.co
+    - www.pulumi.com
+    - pulumi.com
+    - assets.jiffy.com
+    - hex.tech
+    - app.hex.tech
+  follow_dns:
+    - affirm.com
+    - klarna.com
+    - klarnacdn.net
+    - klarnaevt.com
+    - alphabroder.com
+    - ssactivewear.com
+    - braintreegateway.com
+    - stripe.com
+work32:
+  settings:
+    interfaces: jiffy-wg
+    mask: 32
+  domains:
+    - jiffy.com
+    - www.jiffy.com
+ipcheck:
+  interfaces: latvia
+  domains:
+    - paypal-kazakhstan.com
+surfshark:
+  - surfshark.com
+  - www.surfshark.com
+teamviewer:
+  settings:
+    interfaces: latvia
+  domains:
+    - teamviewer.com
+    - dl.teamviewer.com
+bybit:
+  settings:
+    mask: 32
+  domains:
+    - bybit.com
+    - www.bybit.com
+    - api.bybit.com
+ikea:
+  settings:
+    interfaces: kazakhstan
+  domains:
+    - ikea.com
+    - www.ikea.com
+canva:
+  domains:
+    - canva.com
+    - www.canva.com
+samsung:
+  domains:
+    - samsung.com
+  follow_dns:
+    - samsung.com
+misc:
+  - css-tricks.com
+  - api-js.mixpanel.com
+  - esimplus.me
+  - grok.com
+  - www.digitalocean.com
+  - digitalocean.com
+  - wellfound.com
+  - radarr.video
+  - wgd-demo.donaldzou.dev
+  - myheritage.com
+  - www.myheritage.com
+  - tinyurl.com
+payoneer:
+  domains:
+    - payoneer.com
+  settings:
+    mask: '24'
+  follow_dns:
+    - payoneer.com
+3dprinter:
+  - yeggi.com
+  - stlfinder.com

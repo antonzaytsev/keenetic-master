@@ -1,0 +1,287 @@
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-network-wired me-2"></i>
+                IP Address Routes
+            </h1>
+            <div class="d-flex align-items-center">
+                <div class="me-3">
+                    <small class="text-muted">
+                        Total: <span class="badge bg-primary"><%= @total_routes %></span>
+                        Synced: <span class="badge bg-success"><%= @synced_routes %></span>
+                        Unsynced: <span class="badge bg-warning"><%= @unsynced_routes %></span>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<% unless @routes.empty? %>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="searchInput" 
+                                       placeholder="Search IP addresses..." 
+                                       autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="col-md-3 mt-2 mt-md-0">
+                            <select class="form-select" id="syncStatusFilter">
+                                <option value="">All Sync Statuses</option>
+                                <option value="synced">Synced to Router</option>
+                                <option value="unsynced">Not Synced</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mt-2 mt-md-0">
+                            <select class="form-select" id="groupFilter">
+                                <option value="">All Domain Groups</option>
+                                <% DomainGroup.all.each do |group| %>
+                                    <option value="<%= group.id %>"><%= group.name %></option>
+                                <% end %>
+                            </select>
+                        </div>
+                        <div class="col-md-2 mt-2 mt-md-0">
+                            <button type="button" class="btn btn-sm btn-outline-secondary w-100" onclick="clearFilters()">
+                                <i class="fas fa-times me-1"></i>
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<% end %>
+
+<% if @routes.empty? %>
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-network-wired fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No IP routes found</h5>
+                    <p class="text-muted">Routes will appear here once domains are resolved and compiled</p>
+                </div>
+            </div>
+        </div>
+    </div>
+<% else %>
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="fas fa-list me-2"></i>
+                            IP Address Routes
+                        </h6>
+                        <small class="text-muted">
+                            <span id="visibleCount"><%= @routes.count %></span> of 
+                            <span id="totalCount"><%= @routes.count %></span> routes
+                        </small>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Network</th>
+                                    <th>Mask</th>
+                                    <th>Interface</th>
+                                    <th>Domain Group</th>
+                                    <th>Sync Status</th>
+                                    <th>Last Sync</th>
+                                    <th>Comment</th>
+                                </tr>
+                            </thead>
+                            <tbody id="routesTableBody">
+                                <% @routes.each do |route| %>
+                                    <tr class="route-row" data-network="<%= route.network %>" data-group="<%= route.group_id %>" data-sync="<%= route.synced_to_router ? 'synced' : 'unsynced' %>">
+                                        <td>
+                                            <code class="text-primary"><%= route.network %></code>
+                                        </td>
+                                        <td>
+                                            <code class="text-muted"><%= route.mask %></code>
+                                        </td>
+                                        <td>
+                                            <% if route.interface %>
+                                                <span class="badge bg-info"><%= route.interface %></span>
+                                            <% else %>
+                                                <span class="text-muted">-</span>
+                                            <% end %>
+                                        </td>
+                                        <td>
+                                            <% if route.domain_group %>
+                                                <a href="/edit/<%= route.domain_group.name %>" class="text-decoration-none">
+                                                    <i class="fas fa-layer-group me-1"></i>
+                                                    <%= route.domain_group.name %>
+                                                </a>
+                                            <% else %>
+                                                <span class="text-muted">No group</span>
+                                            <% end %>
+                                        </td>
+                                        <td>
+                                            <% if route.synced_to_router %>
+                                                <span class="status-badge status-synced">
+                                                    <i class="fas fa-check me-1"></i>Synced
+                                                </span>
+                                            <% else %>
+                                                <span class="status-badge status-unsynced">
+                                                    <i class="fas fa-times me-1"></i>Not Synced
+                                                </span>
+                                            <% end %>
+                                        </td>
+                                        <td>
+                                            <% if route.synced_at %>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-clock me-1"></i>
+                                                    <span title="<%= route.synced_at.strftime('%B %d, %Y at %I:%M %p') %>">
+                                                        <%= route.synced_at.strftime('%m/%d %H:%M') %>
+                                                    </span>
+                                                </small>
+                                            <% else %>
+                                                <span class="text-muted">Never</span>
+                                            <% end %>
+                                        </td>
+                                        <td>
+                                            <% if route.comment && !route.comment.empty? %>
+                                                <small class="text-muted"><%= route.comment %></small>
+                                            <% else %>
+                                                <span class="text-muted">-</span>
+                                            <% end %>
+                                        </td>
+                                    </tr>
+                                <% end %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<% end %>
+
+<script>
+    // Search and filter functionality
+    const searchInput = document.getElementById('searchInput');
+    const syncStatusFilter = document.getElementById('syncStatusFilter');
+    const groupFilter = document.getElementById('groupFilter');
+    const routeRows = document.querySelectorAll('.route-row');
+    const visibleCount = document.getElementById('visibleCount');
+    const totalCount = document.getElementById('totalCount');
+
+    function filterRoutes() {
+        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const syncStatus = syncStatusFilter ? syncStatusFilter.value : '';
+        const groupId = groupFilter ? groupFilter.value : '';
+        let visible = 0;
+
+        routeRows.forEach(row => {
+            const network = row.getAttribute('data-network').toLowerCase();
+            const rowSyncStatus = row.getAttribute('data-sync');
+            const rowGroupId = row.getAttribute('data-group');
+            
+            const matchesSearch = searchTerm === '' || network.includes(searchTerm);
+            const matchesSync = syncStatus === '' || rowSyncStatus === syncStatus;
+            const matchesGroup = groupId === '' || rowGroupId === groupId;
+            
+            const shouldShow = matchesSearch && matchesSync && matchesGroup;
+            
+            if (shouldShow) {
+                row.style.display = 'table-row';
+                visible++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        if (visibleCount) {
+            visibleCount.textContent = visible;
+        }
+
+        // Show/hide no results message
+        toggleNoResultsMessage(visible === 0 && (searchTerm !== '' || syncStatus !== '' || groupId !== ''));
+    }
+
+    // Add event listeners
+    if (searchInput) {
+        searchInput.addEventListener('input', filterRoutes);
+        
+        // Focus search input on Ctrl+F or Cmd+F
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                searchInput.focus();
+                searchInput.select();
+            }
+        });
+    }
+
+    if (syncStatusFilter) {
+        syncStatusFilter.addEventListener('change', filterRoutes);
+    }
+
+    if (groupFilter) {
+        groupFilter.addEventListener('change', filterRoutes);
+    }
+
+    // Check for URL parameters and set filters accordingly
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const groupId = urlParams.get('group_id');
+        
+        if (groupId && groupFilter) {
+            groupFilter.value = groupId;
+            filterRoutes();
+        }
+    });
+
+    function clearFilters() {
+        if (searchInput) searchInput.value = '';
+        if (syncStatusFilter) syncStatusFilter.value = '';
+        if (groupFilter) groupFilter.value = '';
+        filterRoutes();
+        if (searchInput) searchInput.focus();
+    }
+
+    function toggleNoResultsMessage(show) {
+        let noResultsMsg = document.getElementById('noResultsMessage');
+        const tableBody = document.getElementById('routesTableBody');
+        
+        if (show && !noResultsMsg) {
+            noResultsMsg = document.createElement('tr');
+            noResultsMsg.id = 'noResultsMessage';
+            noResultsMsg.innerHTML = `
+                <td colspan="7" class="text-center py-4">
+                    <i class="fas fa-search fa-2x text-muted mb-3"></i>
+                    <h6 class="text-muted">No matching routes found</h6>
+                    <p class="text-muted mb-0">Try adjusting your search terms or filters</p>
+                </td>
+            `;
+            tableBody.appendChild(noResultsMsg);
+        } else if (!show && noResultsMsg) {
+            noResultsMsg.remove();
+        }
+    }
+
+    // Auto-refresh every 30 seconds (disabled during active search/filter)
+    setInterval(() => {
+        const hasActiveFilters = (searchInput && searchInput.value.trim() !== '') || 
+                                (syncStatusFilter && syncStatusFilter.value !== '') || 
+                                (groupFilter && groupFilter.value !== '');
+        
+        if (!hasActiveFilters) {
+            location.reload();
+        }
+    }, 30000);
+</script>

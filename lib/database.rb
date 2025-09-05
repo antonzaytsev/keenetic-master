@@ -1,0 +1,113 @@
+require 'sequel'
+require 'pg'
+require 'fileutils'
+
+class Database
+  class << self
+    attr_reader :db
+
+    def setup!
+      connection_string = build_connection_string
+      
+      @db = Sequel.connect(connection_string)
+      
+      # Set the database connection for all Sequel models
+      Sequel::Model.db = @db
+      
+      run_migrations!
+      
+      @db
+    end
+
+    def connection
+      return @db if @db
+      
+      # Lazy initialization - setup database when first accessed
+      setup!
+    end
+
+    private
+
+    def build_connection_string
+      host = ENV.fetch('DATABASE_HOST', 'localhost')
+      port = ENV.fetch('DATABASE_PORT', '5433')
+      database = ENV.fetch('DATABASE_NAME', 'keenetic_master')
+      username = ENV.fetch('DATABASE_USERNAME', 'postgres')
+      password = ENV.fetch('DATABASE_PASSWORD', 'postgres')
+
+      "postgres://#{username}:#{password}@#{host}:#{port}/#{database}"
+    end
+
+    def run_migrations!
+      return if tables_exist?
+
+      create_domain_groups_table
+      create_domains_table
+      create_routes_table
+      create_sync_log_table
+    end
+
+    def tables_exist?
+      @db.tables.include?(:domain_groups)
+    end
+
+    def create_domain_groups_table
+      @db.create_table :domain_groups do
+        primary_key :id
+        String :name, unique: true, null: false
+        String :mask
+        String :interfaces
+        DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
+        DateTime :updated_at, default: Sequel::CURRENT_TIMESTAMP
+        
+        index :name
+      end
+    end
+
+    def create_domains_table
+      @db.create_table :domains do
+        primary_key :id
+        foreign_key :group_id, :domain_groups, on_delete: :cascade
+        String :domain, null: false
+        String :type, default: 'regular' # regular, follow_dns
+        DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
+        
+        index [:group_id, :domain]
+        index :type
+      end
+    end
+
+    def create_routes_table
+      @db.create_table :routes do
+        primary_key :id
+        foreign_key :group_id, :domain_groups, on_delete: :cascade
+        String :network, null: false
+        String :mask, null: false
+        String :interface, null: false
+        String :comment
+        Boolean :synced_to_router, default: false
+        DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
+        DateTime :updated_at, default: Sequel::CURRENT_TIMESTAMP
+        DateTime :synced_at
+        
+        index [:group_id, :network, :mask]
+        index :synced_to_router
+      end
+    end
+
+    def create_sync_log_table
+      @db.create_table :sync_log do
+        primary_key :id
+        String :operation, null: false # add, delete, update
+        String :resource_type, null: false # route
+        Integer :resource_id
+        Boolean :success, default: false
+        String :error_message
+        DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
+        
+        index :created_at
+        index :success
+      end
+    end
+  end
+end
