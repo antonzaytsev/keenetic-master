@@ -57,39 +57,96 @@ class KeeneticMaster
 
     def process_logs(new_content)
       routes_to_update = []
+      processed_domains = {}
 
       new_content.lines.each do |line|
         group = JSON.parse(line) rescue nil
         next if group.nil? || group['ip_addresses'].blank?
 
         requested_domain = group['request']['query'][0..-2]
+        domain_matched = false
 
         follow_dns.each do |website, data|
           data[:domains].each do |domain|
-            next if requested_domain != domain && requested_domain !~ /\.#{Regexp.escape(domain)}$/
+            if requested_domain == domain || requested_domain =~ /\.#{Regexp.escape(domain)}$/
+              domain_matched = true
+              routes_count = 0
 
-            group['ip_addresses'].each do |ip_address|
-              data[:interfaces].each do |interface|
-                routes_to_update << {
-                  network: ip_address.sub(/\.\d+$/, '.0'),
-                  mask: Constants::MASKS.fetch('24'),
-                  interface: CorrectInterface.call(interface),
-                  comment: "[auto:#{website}] #{requested_domain}",
-                  auto: true
-                }
+              group['ip_addresses'].each do |ip_address|
+                data[:interfaces].each do |interface|
+                  route = {
+                    network: ip_address.sub(/\.\d+$/, '.0'),
+                    mask: Constants::MASKS.fetch('24'),
+                    interface: CorrectInterface.call(interface),
+                    comment: "[auto:#{website}] #{requested_domain}",
+                    auto: true
+                  }
+                  routes_to_update << route
+                  routes_count += 1
+                end
               end
+
+              # Log the processing event
+              DnsProcessingLog.log_processing_event(
+                action: 'processed',
+                domain: requested_domain,
+                group_name: website,
+                routes_count: routes_count,
+                ip_addresses: group['ip_addresses'],
+                comment: "[auto:#{website}] #{requested_domain}"
+              )
+
+              processed_domains[requested_domain] ||= { website: website, routes_count: 0 }
+              processed_domains[requested_domain][:routes_count] += routes_count
             end
           end
         end
+
+        # Log domains that didn't match any follow_dns domains
+        unless domain_matched
+          DnsProcessingLog.log_processing_event(
+            action: 'skipped',
+            domain: requested_domain,
+            group_name: 'none',
+            routes_count: 0,
+            ip_addresses: group['ip_addresses'],
+            comment: 'No matching follow_dns domain found'
+          )
+        end
       end
 
-      p "Обновлено #{routes_to_update.size} routes_to_update"
+      logger.info "Обновлено #{routes_to_update.size} routes_to_update"
 
       return if routes_to_update.blank?
 
-      p routes_to_update
-
-      ApplyRouteChanges.call(routes_to_update)
+      # Apply route changes and log the overall result
+      result = ApplyRouteChanges.call(routes_to_update)
+      
+      if result.success?
+        # Log successful route additions
+        processed_domains.each do |domain, info|
+          DnsProcessingLog.log_processing_event(
+            action: 'added',
+            domain: domain,
+            group_name: info[:website],
+            routes_count: info[:routes_count],
+            comment: "Successfully added #{info[:routes_count]} routes"
+          )
+        end
+        logger.info "Successfully applied #{routes_to_update.size} route changes"
+      else
+        # Log failed route additions
+        processed_domains.each do |domain, info|
+          DnsProcessingLog.log_processing_event(
+            action: 'error',
+            domain: domain,
+            group_name: info[:website],
+            routes_count: 0,
+            comment: "Failed to add routes: #{result.failure}"
+          )
+        end
+        logger.error "Failed to apply route changes: #{result.failure}"
+      end
     end
 
     def follow_dns

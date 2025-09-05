@@ -39,12 +39,11 @@ class Database
     end
 
     def run_migrations!
-      return if tables_exist?
-
-      create_domain_groups_table
-      create_domains_table
-      create_routes_table
-      create_sync_log_table
+      create_domain_groups_table unless @db.tables.include?(:domain_groups)
+      create_domains_table unless @db.tables.include?(:domains)
+      create_routes_table unless @db.tables.include?(:routes)
+      create_sync_log_table unless @db.tables.include?(:sync_log)
+      create_dns_processing_log_table unless @db.tables.include?(:dns_processing_log)
     end
 
     def tables_exist?
@@ -108,6 +107,65 @@ class Database
         index :created_at
         index :success
       end
+    end
+
+    def create_dns_processing_log_table
+      @db.create_table :dns_processing_log do
+        primary_key :id
+        String :action, null: false # 'added', 'skipped', 'processed'
+        String :domain, null: false
+        String :group_name, null: false
+        String :network
+        String :mask
+        String :interface
+        String :comment
+        String :ip_addresses
+        Integer :routes_count, default: 0
+        DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
+        
+        index :created_at
+        index :action
+        index :group_name
+        index :domain
+      end
+    rescue => e
+      # Log error but don't crash if table already exists
+      puts "Warning: Could not create dns_processing_log table: #{e.message}"
+      raise e unless e.message.include?('already exists')
+    end
+
+    # Method to manually create missing tables
+    def self.create_missing_tables!
+      setup! unless @db
+      
+      missing_tables = []
+      
+      unless @db.tables.include?(:dns_processing_log)
+        missing_tables << :dns_processing_log
+        @db.create_table :dns_processing_log do
+          primary_key :id
+          String :action, null: false
+          String :domain, null: false
+          String :group_name, null: false
+          String :network
+          String :mask
+          String :interface
+          String :comment
+          String :ip_addresses
+          Integer :routes_count, default: 0
+          DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
+          
+          index :created_at
+          index :action
+          index :group_name
+          index :domain
+        end
+      end
+      
+      missing_tables
+    rescue => e
+      puts "Error creating missing tables: #{e.message}"
+      []
     end
   end
 end

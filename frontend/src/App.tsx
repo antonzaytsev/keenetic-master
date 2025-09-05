@@ -9,6 +9,7 @@ import GroupDetails from './components/GroupDetails';
 import IPAddresses from './components/IPAddresses';
 import RouterRoutes from './components/RouterRoutes';
 import SyncStatus from './components/SyncStatus';
+import DnsLogs from './components/DnsLogs';
 
 import './App.css';
 
@@ -24,6 +25,7 @@ function App() {
             <Route path="/ip-addresses" element={<IPAddresses />} />
             <Route path="/router-routes" element={<RouterRoutes />} />
             <Route path="/sync-status" element={<SyncStatus />} />
+            <Route path="/dns-logs" element={<DnsLogs />} />
           </Routes>
         </div>
       </div>

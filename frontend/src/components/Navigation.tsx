@@ -46,6 +46,13 @@ const Navigation: React.FC = () => {
                 Sync Status
               </Nav.Link>
             </LinkContainer>
+            
+            <LinkContainer to="/dns-logs">
+              <Nav.Link className={location.pathname === '/dns-logs' ? 'active' : ''}>
+                <i className="fas fa-file-alt me-1"></i>
+                DNS Logs
+              </Nav.Link>
+            </LinkContainer>
           </Nav>
         </Navbar.Collapse>
       </Container>

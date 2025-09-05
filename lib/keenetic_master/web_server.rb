@@ -570,6 +570,122 @@ class KeeneticMaster
       end
     end
 
+    # API endpoint for DNS processing logs with pagination and filtering
+    get '/api/dns-logs' do
+      content_type :json
+      begin
+        page = (params[:page] || 1).to_i
+        per_page = (params[:per_page] || 50).to_i
+        offset = (page - 1) * per_page
+        
+        logs = DnsProcessingLog.order(Sequel.desc(:created_at))
+        
+        # Apply filters
+        if params[:action] && !params[:action].empty?
+          logs = logs.where(action: params[:action])
+        end
+        
+        if params[:group_name] && !params[:group_name].empty?
+          logs = logs.where(group_name: params[:group_name])
+        end
+        
+        if params[:domain] && !params[:domain].empty?
+          search_term = params[:domain].downcase
+          logs = logs.where(Sequel.ilike(:domain, "%#{search_term}%"))
+        end
+        
+        if params[:search] && !params[:search].empty?
+          search_term = params[:search].downcase
+          logs = logs.where(
+            Sequel.ilike(:domain, "%#{search_term}%") |
+            Sequel.ilike(:group_name, "%#{search_term}%") |
+            Sequel.ilike(:comment, "%#{search_term}%")
+          )
+        end
+        
+        # Date range filtering
+        if params[:start_date] && !params[:start_date].empty?
+          start_date = Time.parse(params[:start_date])
+          logs = logs.where { created_at >= start_date }
+        end
+        
+        if params[:end_date] && !params[:end_date].empty?
+          end_date = Time.parse(params[:end_date])
+          logs = logs.where { created_at <= end_date }
+        end
+        
+        total_count = logs.count
+        logs = logs.limit(per_page).offset(offset)
+        
+        result = {
+          logs: logs.map do |log|
+            {
+              id: log.id,
+              action: log.action,
+              domain: log.domain,
+              group_name: log.group_name,
+              network: log.network,
+              mask: log.mask,
+              interface: log.interface,
+              comment: log.comment,
+              ip_addresses: log.ip_addresses_array,
+              routes_count: log.routes_count,
+              created_at: log.created_at&.iso8601
+            }
+          end,
+          pagination: {
+            page: page,
+            per_page: per_page,
+            total_count: total_count,
+            total_pages: (total_count.to_f / per_page).ceil
+          }
+        }
+        
+        json result
+      rescue => e
+        logger.error("Error loading DNS processing logs: #{e.message}")
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint for DNS logs statistics
+    get '/api/dns-logs/stats' do
+      content_type :json
+      begin
+        stats = {
+          total_logs: DnsProcessingLog.count,
+          recent_24h: DnsProcessingLog.where { created_at > Time.now - 86400 }.count,
+          by_action: DnsProcessingLog.group_and_count(:action).to_hash,
+          by_group: DnsProcessingLog.group_and_count(:group_name).to_hash,
+          total_routes_processed: DnsProcessingLog.sum(:routes_count) || 0
+        }
+        
+        # Recent activity
+        recent_logs = DnsProcessingLog.order(Sequel.desc(:created_at)).limit(10).map do |log|
+          {
+            id: log.id,
+            action: log.action,
+            domain: log.domain,
+            group_name: log.group_name,
+            routes_count: log.routes_count,
+            created_at: log.created_at&.iso8601
+          }
+        end
+        
+        result = {
+          statistics: stats,
+          recent_activity: recent_logs
+        }
+        
+        json result
+      rescue => e
+        logger.error("Error loading DNS logs statistics: #{e.message}")
+        status 500
+        json error: e.message
+      end
+    end
+
     # Root endpoint - API info
     get '/' do
       json({
@@ -582,6 +698,8 @@ class KeeneticMaster
           ip_addresses: '/api/ip-addresses',
           sync_stats: '/api/sync-stats',
           sync_logs: '/api/sync-logs',
+          dns_logs: '/api/dns-logs',
+          dns_logs_stats: '/api/dns-logs/stats',
           health: '/health'
         },
         timestamp: Time.now.iso8601

@@ -65,6 +65,43 @@ export interface SyncStatusData {
   recent_failures: SyncLog[];
 }
 
+export interface DnsLog {
+  id: number;
+  action: string;
+  domain: string;
+  group_name: string;
+  network?: string;
+  mask?: string;
+  interface?: string;
+  comment?: string;
+  ip_addresses: string[];
+  routes_count: number;
+  created_at: string;
+}
+
+export interface DnsLogsResponse {
+  logs: DnsLog[];
+  pagination: {
+    page: number;
+    per_page: number;
+    total_count: number;
+    total_pages: number;
+  };
+}
+
+export interface DnsLogsStats {
+  total_logs: number;
+  recent_24h: number;
+  by_action: { [key: string]: number };
+  by_group: { [key: string]: number };
+  total_routes_processed: number;
+}
+
+export interface DnsLogsStatsResponse {
+  statistics: DnsLogsStats;
+  recent_activity: DnsLog[];
+}
+
 // API Functions
 export const apiService = {
   // Domain Groups
@@ -146,6 +183,26 @@ export const apiService = {
     };
   }> => {
     const response = await api.get('/api/sync-logs', { params });
+    return response.data;
+  },
+
+  // DNS Logs
+  getDnsLogs: async (params?: {
+    page?: number;
+    per_page?: number;
+    action?: string;
+    group_name?: string;
+    domain?: string;
+    search?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<DnsLogsResponse> => {
+    const response = await api.get('/api/dns-logs', { params });
+    return response.data;
+  },
+
+  getDnsLogsStats: async (): Promise<DnsLogsStatsResponse> => {
+    const response = await api.get('/api/dns-logs/stats');
     return response.data;
   },
 

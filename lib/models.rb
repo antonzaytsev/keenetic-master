@@ -170,3 +170,43 @@ class SyncLog < Sequel::Model(:sync_log)
       .order(:created_at)
   end
 end
+
+# DNS Processing log model for tracking DNS log processing events
+class DnsProcessingLog < Sequel::Model(:dns_processing_log)
+  def self.log_processing_event(action:, domain:, group_name:, routes_count: 0, network: nil, mask: nil, interface: nil, comment: nil, ip_addresses: nil)
+    create(
+      action: action,
+      domain: domain,
+      group_name: group_name,
+      network: network,
+      mask: mask,
+      interface: interface,
+      comment: comment,
+      ip_addresses: ip_addresses&.is_a?(Array) ? ip_addresses.join(',') : ip_addresses,
+      routes_count: routes_count
+    )
+  end
+
+  def self.recent_logs(limit: 100)
+    order(Sequel.desc(:created_at)).limit(limit)
+  end
+
+  def self.by_group(group_name)
+    where(group_name: group_name).order(Sequel.desc(:created_at))
+  end
+
+  def self.by_action(action)
+    where(action: action).order(Sequel.desc(:created_at))
+  end
+
+  def self.search(query)
+    where(Sequel.ilike(:domain, "%#{query}%"))
+      .or(Sequel.ilike(:group_name, "%#{query}%"))
+      .or(Sequel.ilike(:comment, "%#{query}%"))
+      .order(Sequel.desc(:created_at))
+  end
+
+  def ip_addresses_array
+    ip_addresses&.split(',') || []
+  end
+end
