@@ -19,22 +19,22 @@ const GroupDetails: React.FC = () => {
   useEffect(() => {
     const loadGroupDetails = async () => {
       if (!groupName) return;
-      
+
       try {
         setLoading(true);
-        
+
         // First try to get the group from the domain groups list (which has full data)
         const [allGroups, routesData] = await Promise.all([
           apiService.getDomainGroups(),
           apiService.getRoutes({ group_id: groupName })
         ]);
-        
+
         const groupData = allGroups.find(g => g.name === groupName);
-        
+
         if (!groupData) {
           // Fallback to individual group API if not found in list
           const individualGroupData = await apiService.getDomainGroup(groupName);
-          
+
           // Convert the simplified format to our expected format
           const convertedGroup: DomainGroup = {
             id: 0, // We don't have the ID from this API
@@ -51,12 +51,12 @@ const GroupDetails: React.FC = () => {
               pending_routes: routesData.filter(r => !r.synced_to_router).length,
             },
           };
-          
+
           setGroup(convertedGroup);
         } else {
           setGroup(groupData);
         }
-        
+
         setRoutes(routesData);
         setError(null);
       } catch (err) {
@@ -84,13 +84,13 @@ const GroupDetails: React.FC = () => {
 
   const loadRouterRoutes = async () => {
     if (!groupName) return;
-    
+
     try {
       setRouterRoutesLoading(true);
       setRouterRoutesError(null);
-      
+
       const result = await apiService.getRouterRoutes(groupName);
-      
+
       if (result.success) {
         setRouterRoutes(result.routes || []);
       } else {
@@ -106,33 +106,33 @@ const GroupDetails: React.FC = () => {
 
   const handleGenerateIPs = async () => {
     if (!groupName) return;
-    
+
     try {
       setGenerating(true);
       setError(null);
       setSuccessMessage(null);
-      
+
       const result = await apiService.generateIPs(groupName);
-      
+
       if (result.success) {
         setSuccessMessage(`${result.message} (Added: ${result.statistics.added}, Deleted: ${result.statistics.deleted}, Total: ${result.statistics.total}). Refreshing route data...`);
-        
+
         // Reload database routes immediately
         const updatedRoutes = await apiService.getRoutes({ group_id: groupName });
-        
+
         // Small delay before refreshing router routes to allow time for routes to appear
         setTimeout(async () => {
           setSuccessMessage(`${result.message} (Added: ${result.statistics.added}, Deleted: ${result.statistics.deleted}, Total: ${result.statistics.total}). Database routes updated, refreshing router routes...`);
           await loadRouterRoutes();
           setSuccessMessage(`${result.message} (Added: ${result.statistics.added}, Deleted: ${result.statistics.deleted}, Total: ${result.statistics.total}). All route data updated!`);
         }, 1000);
-        
+
         setRoutes(updatedRoutes);
-        
+
         // Update group statistics if we have the group data
         if (group) {
-          const updatedGroup = { 
-            ...group, 
+          const updatedGroup = {
+            ...group,
             statistics: {
               ...group.statistics,
               total_routes: result.statistics.total,
@@ -153,25 +153,25 @@ const GroupDetails: React.FC = () => {
 
   const handleSyncToRouter = async () => {
     if (!groupName) return;
-    
+
     try {
       setSyncing(true);
       setError(null);
       setSuccessMessage(null);
-      
+
       const result = await apiService.syncToRouter(groupName);
-      
+
       if (result.success) {
         setSuccessMessage(`${result.message} Refreshing route data...`);
-        
+
         // Reload the routes data to reflect sync status changes
         const updatedRoutes = await apiService.getRoutes({ group_id: groupName });
         setRoutes(updatedRoutes);
-        
+
         // Update group statistics
         if (group) {
-          const updatedGroup = { 
-            ...group, 
+          const updatedGroup = {
+            ...group,
             statistics: {
               ...group.statistics,
               synced_routes: updatedRoutes.filter(r => r.synced_to_router).length,
@@ -180,7 +180,7 @@ const GroupDetails: React.FC = () => {
           };
           setGroup(updatedGroup);
         }
-        
+
         // Refresh router routes to show newly synced routes
         setTimeout(async () => {
           setSuccessMessage(`${result.message} Refreshing router routes...`);
@@ -198,18 +198,18 @@ const GroupDetails: React.FC = () => {
 
   const getDomainsList = () => {
     if (!group || !group.domains) return { regular: [], followDns: [] };
-    
+
     if (Array.isArray(group.domains)) {
       return { regular: group.domains, followDns: [] };
     }
-    
+
     if (typeof group.domains === 'object') {
       return {
         regular: group.domains.domains || [],
         followDns: group.domains.follow_dns || []
       };
     }
-    
+
     return { regular: [], followDns: [] };
   };
 
@@ -229,11 +229,11 @@ const GroupDetails: React.FC = () => {
           <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/' }}>Domain Groups</Breadcrumb.Item>
           <Breadcrumb.Item active>{groupName}</Breadcrumb.Item>
         </Breadcrumb>
-        
+
         <Alert variant="danger">
           Group not found
         </Alert>
-        
+
         <Link to="/" className="btn btn-primary">
           <i className="fas fa-arrow-left me-2"></i>
           Back to Groups
@@ -267,14 +267,14 @@ const GroupDetails: React.FC = () => {
                 <i className="fas fa-arrow-left me-1"></i>
                 Back to Groups
               </Link>
-              <Link 
+              <Link
                 to={`/groups/${group.name}/edit`}
                 className="btn btn-outline-primary me-2"
               >
                 <i className="fas fa-edit me-1"></i>
                 Edit Group
               </Link>
-              <Button 
+              <Button
                 variant="success"
                 className="me-2"
                 onClick={handleGenerateIPs}
@@ -292,7 +292,7 @@ const GroupDetails: React.FC = () => {
                   </>
                 )}
               </Button>
-              <Button 
+              <Button
                 variant="warning"
                 className="me-2"
                 onClick={handleSyncToRouter}
@@ -315,7 +315,7 @@ const GroupDetails: React.FC = () => {
                   </>
                 )}
               </Button>
-              <Link 
+              <Link
                 to={`/ip-addresses?group_id=${group.id}`}
                 className="btn btn-primary"
               >
@@ -334,7 +334,7 @@ const GroupDetails: React.FC = () => {
           {successMessage}
         </Alert>
       )}
-      
+
       {error && (
         <Alert variant="danger" className="mb-4" dismissible onClose={() => setError(null)}>
           <i className="fas fa-exclamation-triangle me-2"></i>
@@ -342,92 +342,118 @@ const GroupDetails: React.FC = () => {
         </Alert>
       )}
 
-      {/* Group Information */}
       <Row className="mb-4">
-        <Col md={6}>
-          <Card>
+        <Col lg={4}>
+          <Card className="h-100">
             <Card.Header>
               <h6 className="mb-0">
-                <i className="fas fa-info-circle me-2"></i>
-                Group Information
+                <i className="fas fa-cog me-2"></i>
+                Configuration
               </h6>
             </Card.Header>
             <Card.Body>
-              <Row className="mb-3">
-                <Col sm={4}><strong>Name:</strong></Col>
-                <Col sm={8}>{group.name}</Col>
-              </Row>
-              
               {group.mask && (
-                <Row className="mb-3">
-                  <Col sm={4}><strong>Mask:</strong></Col>
-                  <Col sm={8}><code>{group.mask}</code></Col>
-                </Row>
+                <div className="mb-3">
+                  <div className="small text-muted mb-1">Network Mask</div>
+                  <code className="text-primary">{group.mask}</code>
+                </div>
               )}
-              
+
               {group.interfaces && (
-                <Row className="mb-3">
-                  <Col sm={4}><strong>Interface:</strong></Col>
-                  <Col sm={8}><Badge bg="info">{group.interfaces}</Badge></Col>
-                </Row>
+                <div className="mb-3">
+                  <div className="small text-muted mb-1">Interface</div>
+                  <Badge bg="info">{group.interfaces}</Badge>
+                </div>
               )}
-              
-              <Row className="mb-3">
-                <Col sm={4}><strong>Created:</strong></Col>
-                <Col sm={8}>{formatDate(group.created_at)}</Col>
-              </Row>
-              
-              <Row>
-                <Col sm={4}><strong>Last Updated:</strong></Col>
-                <Col sm={8}>{formatDate(group.updated_at)}</Col>
-              </Row>
+
+              <div className="mb-3">
+                <div className="small text-muted mb-1">Created</div>
+                <div className="text-dark">
+                  <i className="fas fa-calendar-plus me-1 text-success"></i>
+                  {formatDate(group.created_at)}
+                </div>
+              </div>
+
+              <div>
+                <div className="small text-muted mb-1">Last Updated</div>
+                <div className="text-dark">
+                  <i className="fas fa-clock me-1 text-warning"></i>
+                  {formatDate(group.updated_at)}
+                </div>
+              </div>
             </Card.Body>
           </Card>
         </Col>
-        
-        <Col md={6}>
-          <Card>
+
+        <Col lg={8}>
+          <Card className="h-100">
             <Card.Header>
               <h6 className="mb-0">
-                <i className="fas fa-chart-bar me-2"></i>
-                Statistics
+                <i className="fas fa-chart-pie me-2"></i>
+                Overview Statistics
               </h6>
             </Card.Header>
             <Card.Body>
-              <Row className="text-center mb-3">
-                <Col xs={6}>
-                  <div className="h4 mb-1 text-primary">{group.statistics.total_domains}</div>
-                  <div className="text-muted">Total Domains</div>
+              <Row className="text-center mb-4">
+                <Col xs={6} md={3}>
+                  <div className="p-3 bg-primary bg-opacity-10 rounded mb-2">
+                    <div className="h3 mb-1 text-primary">{group.statistics.total_domains}</div>
+                    <div className="text-muted small fw-bold">Total Domains</div>
+                  </div>
                 </Col>
-                <Col xs={6}>
-                  <div className="h4 mb-1 text-info">{group.statistics.total_routes}</div>
-                  <div className="text-muted">IP Routes</div>
+                <Col xs={6} md={3}>
+                  <div className="p-3 bg-info bg-opacity-10 rounded mb-2">
+                    <div className="h3 mb-1 text-info">{group.statistics.total_routes}</div>
+                    <div className="text-muted small fw-bold">IP Routes</div>
+                  </div>
+                </Col>
+                <Col xs={6} md={3}>
+                  <div className="p-3 bg-success bg-opacity-10 rounded mb-2">
+                    <div className="h3 mb-1 text-success">{group.statistics.synced_routes}</div>
+                    <div className="text-muted small fw-bold">Synced</div>
+                  </div>
+                </Col>
+                <Col xs={6} md={3}>
+                  <div className="p-3 bg-warning bg-opacity-10 rounded mb-2">
+                    <div className="h3 mb-1 text-warning">{group.statistics.pending_routes}</div>
+                    <div className="text-muted small fw-bold">Pending</div>
+                  </div>
                 </Col>
               </Row>
-              
+
               <Row className="text-center">
-                <Col xs={4}>
-                  <div className="h5 mb-1 text-success">{group.statistics.synced_routes}</div>
-                  <div className="text-muted small">Synced</div>
+                <Col xs={6}>
+                  <div className="p-2 border rounded">
+                    <div className="h5 mb-1 text-primary">{group.statistics.regular_domains}</div>
+                    <div className="text-muted small">
+                      <i className="fas fa-globe me-1"></i>
+                      Regular Domains
+                    </div>
+                  </div>
                 </Col>
-                <Col xs={4}>
-                  <div className="h5 mb-1 text-warning">{group.statistics.pending_routes}</div>
-                  <div className="text-muted small">Pending</div>
-                </Col>
-                <Col xs={4}>
-                  <div className="h5 mb-1 text-primary">{group.statistics.regular_domains}</div>
-                  <div className="text-muted small">Regular</div>
-                </Col>
-              </Row>
-              
-              {group.statistics.follow_dns_domains > 0 && (
-                <Row className="text-center mt-3">
-                  <Col>
-                    <div className="h5 mb-1 text-success">{group.statistics.follow_dns_domains}</div>
-                    <div className="text-muted small">DNS Monitored</div>
+                {group.statistics.follow_dns_domains > 0 && (
+                  <Col xs={6}>
+                    <div className="p-2 border rounded">
+                      <div className="h5 mb-1 text-success">{group.statistics.follow_dns_domains}</div>
+                      <div className="text-muted small">
+                        <i className="fas fa-eye me-1"></i>
+                        DNS Monitored
+                      </div>
+                    </div>
                   </Col>
-                </Row>
-              )}
+                )}
+                {group.statistics.follow_dns_domains === 0 && (
+                  <Col xs={6}>
+                    <div className="p-2 border rounded bg-light">
+                      <div className="h5 mb-1 text-muted">0</div>
+                      <div className="text-muted small">
+                        <i className="fas fa-eye me-1"></i>
+                        DNS Monitored
+                      </div>
+                    </div>
+                  </Col>
+                )}
+              </Row>
             </Card.Body>
           </Card>
         </Col>
@@ -579,8 +605,8 @@ const GroupDetails: React.FC = () => {
                   <i className="fas fa-router me-2"></i>
                   IP Routes in Router ({routerRoutes.length})
                 </h6>
-                <Button 
-                  variant="outline-secondary" 
+                <Button
+                  variant="outline-secondary"
                   size="sm"
                   onClick={loadRouterRoutes}
                   disabled={routerRoutesLoading}
