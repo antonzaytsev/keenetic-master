@@ -267,6 +267,13 @@ const GroupDetails: React.FC = () => {
                 <i className="fas fa-arrow-left me-1"></i>
                 Back to Groups
               </Link>
+              <Link 
+                to={`/groups/${group.name}/edit`}
+                className="btn btn-outline-primary me-2"
+              >
+                <i className="fas fa-edit me-1"></i>
+                Edit Group
+              </Link>
               <Button 
                 variant="success"
                 className="me-2"
