@@ -1,7 +1,6 @@
 import axios from 'axios';
 
-// Simple API configuration - always use localhost:4568 for backend
-const API_BASE_URL = 'http://localhost:4568';
+const API_BASE_URL = `http://${process.env.REACT_APP_API_BASE_HOST}:${process.env.REACT_APP_API_BASE_PORT}`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -17,15 +17,15 @@ require_relative 'database_router_sync'
 class KeeneticMaster
   class WebServer < Sinatra::Base
     configure do
-      set :port, ENV.fetch('WEB_PORT', 4567)
-      set :bind, ENV.fetch('WEB_BIND', '0.0.0.0')
+      set :port, '3000'
+      set :bind, '0.0.0.0'
       set :show_exceptions, true
       set :raise_errors, false
 
       # Enable CORS for frontend
       register Sinatra::CrossOrigin
       enable :cross_origin
-      
+
       # Database is initialized when models are loaded
     end
 
@@ -95,10 +95,10 @@ class KeeneticMaster
     get '/api/domain-groups' do
       begin
         domain_groups = DomainGroup.order(:name).all
-        
+
         result = domain_groups.map do |group|
           domains_hash = group.to_hash
-          
+
           {
             id: group.id,
             name: group.name,
@@ -118,7 +118,7 @@ class KeeneticMaster
             updated_at: group.updated_at&.iso8601
           }
         end
-        
+
         json result
       rescue => e
         logger.error("Error loading domain groups: #{e.message}")
@@ -202,40 +202,40 @@ class KeeneticMaster
       begin
         group_name = params[:name]
         group = DomainGroup.find(name: group_name)
-        
+
         unless group
           status 404
           return json error: "Domain group not found"
         end
 
         logger.info("Starting IP generation and database storage for group: #{group_name}")
-        
+
         # Count routes before generation
         routes_before = Route.where(group_id: group.id).count
-        
+
         # Use DatabaseRouterSync to generate and store routes in database
         db_sync = DatabaseRouterSync.new
         generated_count = db_sync.send(:generate_routes_for_group, group)
-        
+
         # Count routes after generation
         routes_after = Route.where(group_id: group.id).count
         routes_added = routes_after - routes_before
-        
+
         # Now sync the new routes to router if there are any pending
         sync_result = db_sync.sync_to_router!
         synced_count = 0
-        
+
         if sync_result.success? && sync_result.value!.key?(:synced)
           synced_count = sync_result.value![:synced]
         end
-        
+
         message = "Successfully generated and stored #{generated_count} routes for group '#{group_name}'. Synced #{synced_count} routes to router."
-        
+
         # Log the operation
         SyncLog.log_success('generate_ips', 'domain_group', group.id)
-        
+
         json({
-          success: true, 
+          success: true,
           message: message,
           statistics: {
             added: routes_added,
@@ -247,12 +247,12 @@ class KeeneticMaster
       rescue => e
         logger.error("Error generating IPs for group '#{params[:name]}': #{e.message}")
         logger.error(e.backtrace.join("\n"))
-        
+
         # Log the error if we have a group
         if defined?(group) && group
           SyncLog.log_error('generate_ips', 'domain_group', e.message, group.id)
         end
-        
+
         status 500
         json error: e.message
       end
@@ -264,17 +264,17 @@ class KeeneticMaster
       begin
         group_name = params[:name]
         group = DomainGroup.find(name: group_name)
-        
+
         unless group
           status 404
           return json error: "Domain group not found"
         end
 
         logger.info("Starting router sync for group: #{group_name}")
-        
+
         # Get routes that need to be synced for this group
         pending_routes = Route.where(group_id: group.id, synced_to_router: false)
-        
+
         if pending_routes.empty?
           json({
             success: true,
@@ -284,15 +284,15 @@ class KeeneticMaster
         else
           # Use UpdateRoutesDatabase to sync with router
           result = UpdateRoutesDatabase.new.call
-          
+
           if result.success?
             # Mark routes as synced
             synced_count = pending_routes.count
             pending_routes.update(synced_to_router: true, synced_at: Time.now)
-            
+
             # Log the operation
             SyncLog.log_success('sync_router', 'domain_group', group.id)
-            
+
             json({
               success: true,
               message: "Successfully synced #{synced_count} routes to router for group '#{group_name}'",
@@ -301,7 +301,7 @@ class KeeneticMaster
           else
             error_message = result.failure.is_a?(Hash) ? result.failure.to_s : result.failure.to_s
             SyncLog.log_error('sync_router', 'domain_group', error_message, group.id)
-            
+
             status 500
             json error: error_message
           end
@@ -309,12 +309,12 @@ class KeeneticMaster
       rescue => e
         logger.error("Error syncing routes to router for group '#{params[:name]}': #{e.message}")
         logger.error(e.backtrace.join("\n"))
-        
+
         # Log the error if we have a group
         if defined?(group) && group
           SyncLog.log_error('sync_router', 'domain_group', e.message, group.id)
         end
-        
+
         status 500
         json error: e.message
       end
@@ -326,7 +326,7 @@ class KeeneticMaster
       begin
         group_name = params[:name]
         group = DomainGroup.find(name: group_name)
-        
+
         unless group
           status 404
           return json error: "Domain group not found"
@@ -334,11 +334,11 @@ class KeeneticMaster
 
         logger.info("Getting router routes for group: #{group_name}")
         result = GetGroupRouterRoutes.new.call(group_name)
-        
+
         if result.success?
           data = result.value!
           router_routes = data[:routes]
-          
+
           # Transform router routes to match our expected format
           formatted_routes = router_routes.map do |route|
             {
@@ -350,7 +350,7 @@ class KeeneticMaster
               description: "Route to #{route[:network] || route[:dest]} via #{route[:gateway] || 'direct'}"
             }
           end
-          
+
           json({
             success: true,
             routes: formatted_routes,
@@ -362,14 +362,14 @@ class KeeneticMaster
         else
           error_message = result.failure[:error] || "Unknown error occurred"
           logger.error("Error getting router routes for group '#{group_name}': #{error_message}")
-          
+
           status 500
           json error: error_message
         end
       rescue => e
         logger.error("Error getting router routes for group '#{params[:name]}': #{e.message}")
         logger.error(e.backtrace.join("\n"))
-        
+
         status 500
         json error: e.message
       end
@@ -381,10 +381,10 @@ class KeeneticMaster
       begin
         logger.info("Getting all routes from router")
         result = GetAllRoutes.new.call
-        
+
         if result.success?
           router_routes = result.value!
-          
+
           # Transform router routes to match our expected format
           formatted_routes = router_routes.map.with_index do |route, index|
             {
@@ -400,19 +400,19 @@ class KeeneticMaster
               description: "Route to #{route[:network] || route[:dest]} via #{route[:gateway] || 'direct'}"
             }
           end
-          
+
           # Apply filters if provided
           if params[:interface] && !params[:interface].empty?
             formatted_routes = formatted_routes.select { |route| route[:interface] == params[:interface] }
           end
-          
+
           if params[:network] && !params[:network].empty?
             search_term = params[:network].downcase
             formatted_routes = formatted_routes.select do |route|
               route[:network]&.downcase&.include?(search_term)
             end
           end
-          
+
           json({
             success: true,
             routes: formatted_routes,
@@ -422,14 +422,14 @@ class KeeneticMaster
         else
           error_message = result.failure[:error] || "Failed to fetch routes from router"
           logger.error("Error getting all router routes: #{error_message}")
-          
+
           status 500
           json error: error_message
         end
       rescue => e
         logger.error("Error getting all router routes: #{e.message}")
         logger.error(e.backtrace.join("\n"))
-        
+
         status 500
         json error: e.message
       end
@@ -441,7 +441,7 @@ class KeeneticMaster
       content_type :json
       begin
         routes = Route.order(:network, :mask)
-        
+
         # Filter by sync status if provided
         if params[:sync_status]
           case params[:sync_status]
@@ -451,7 +451,7 @@ class KeeneticMaster
             routes = routes.where(synced_to_router: false)
           end
         end
-        
+
         # Filter by group if provided (accept both group_id and group_name)
         if params[:group_id] && !params[:group_id].empty?
           if params[:group_id].match?(/^\d+$/)
@@ -463,7 +463,7 @@ class KeeneticMaster
             routes = routes.where(group_id: group.id) if group
           end
         end
-        
+
         result = routes.map do |route|
           {
             id: route.id,
@@ -478,7 +478,7 @@ class KeeneticMaster
             updated_at: route.updated_at&.iso8601
           }
         end
-        
+
         json result
       rescue => e
         status 500
@@ -491,14 +491,14 @@ class KeeneticMaster
       begin
         recent_logs = SyncLog.order(Sequel.desc(:created_at)).limit(100)
         recent_failures = SyncLog.recent_failures(24)
-        
+
         stats = {
           total_routes: Route.count,
           synced_routes: Route.where(synced_to_router: true).count,
           pending_sync: Route.pending_sync.count,
           stale_routes: Route.stale(60).count
         }
-        
+
         result = {
           statistics: stats,
           recent_logs: recent_logs.map do |log|
@@ -523,7 +523,7 @@ class KeeneticMaster
             }
           end
         }
-        
+
         json result
       rescue => e
         logger.error("Error loading sync statistics: #{e.message}")
@@ -539,10 +539,10 @@ class KeeneticMaster
         page = (params[:page] || 1).to_i
         per_page = (params[:per_page] || 50).to_i
         offset = (page - 1) * per_page
-        
+
         logs = SyncLog.order(Sequel.desc(:created_at)).limit(per_page).offset(offset)
         total_count = SyncLog.count
-        
+
         result = {
           logs: logs.map do |log|
             {
@@ -562,7 +562,7 @@ class KeeneticMaster
             total_pages: (total_count.to_f / per_page).ceil
           }
         }
-        
+
         json result
       rescue => e
         status 500
@@ -577,23 +577,23 @@ class KeeneticMaster
         page = (params[:page] || 1).to_i
         per_page = (params[:per_page] || 50).to_i
         offset = (page - 1) * per_page
-        
+
         logs = DnsProcessingLog.order(Sequel.desc(:created_at))
-        
+
         # Apply filters
         if params[:action] && !params[:action].empty?
           logs = logs.where(action: params[:action])
         end
-        
+
         if params[:group_name] && !params[:group_name].empty?
           logs = logs.where(group_name: params[:group_name])
         end
-        
+
         if params[:domain] && !params[:domain].empty?
           search_term = params[:domain].downcase
           logs = logs.where(Sequel.ilike(:domain, "%#{search_term}%"))
         end
-        
+
         if params[:search] && !params[:search].empty?
           search_term = params[:search].downcase
           logs = logs.where(
@@ -602,21 +602,21 @@ class KeeneticMaster
             Sequel.ilike(:comment, "%#{search_term}%")
           )
         end
-        
+
         # Date range filtering
         if params[:start_date] && !params[:start_date].empty?
           start_date = Time.parse(params[:start_date])
           logs = logs.where { created_at >= start_date }
         end
-        
+
         if params[:end_date] && !params[:end_date].empty?
           end_date = Time.parse(params[:end_date])
           logs = logs.where { created_at <= end_date }
         end
-        
+
         total_count = logs.count
         logs = logs.limit(per_page).offset(offset)
-        
+
         result = {
           logs: logs.map do |log|
             {
@@ -640,7 +640,7 @@ class KeeneticMaster
             total_pages: (total_count.to_f / per_page).ceil
           }
         }
-        
+
         json result
       rescue => e
         logger.error("Error loading DNS processing logs: #{e.message}")
@@ -660,7 +660,7 @@ class KeeneticMaster
           by_group: DnsProcessingLog.group_and_count(:group_name).to_hash,
           total_routes_processed: DnsProcessingLog.sum(:routes_count) || 0
         }
-        
+
         # Recent activity
         recent_logs = DnsProcessingLog.order(Sequel.desc(:created_at)).limit(10).map do |log|
           {
@@ -672,12 +672,12 @@ class KeeneticMaster
             created_at: log.created_at&.iso8601
           }
         end
-        
+
         result = {
           statistics: stats,
           recent_activity: recent_logs
         }
-        
+
         json result
       rescue => e
         logger.error("Error loading DNS logs statistics: #{e.message}")

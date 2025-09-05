@@ -75,8 +75,6 @@ The backend provides the following API endpoints:
 
 ### Backend (.env)
 ```
-WEB_PORT=4567
-WEB_BIND=0.0.0.0
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_NAME=keenetic_master
@@ -86,7 +84,7 @@ DATABASE_PASSWORD=postgres
 
 ### Frontend
 ```
-REACT_APP_API_BASE_URL=http://localhost:4567
+REACT_APP_API_BASE_URL=http://localhost:3200
 ```
 
 ## Features

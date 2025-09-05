@@ -10,10 +10,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - "5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 30s
+      interval: 10s
       timeout: 10s
       retries: 5
 
@@ -31,11 +31,11 @@ services:
       - bundle_cache:/usr/local/bundle
     env_file: ".env"
     environment:
-      - DATABASE_HOST=postgres
-      - DATABASE_PORT=5432
-      - DATABASE_NAME=keenetic_master
-      - DATABASE_USERNAME=postgres
-      - DATABASE_PASSWORD=postgres
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: keenetic_master
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,11 +56,11 @@ services:
       - ${DNS_LOGS_HOST_PATH:-./tmp/dns.log}:${DNS_LOGS_CONTAINER_PATH:-/app/logs/dns.log}
     env_file: ".env"
     environment:
-      - DATABASE_HOST=postgres
-      - DATABASE_PORT=5432
-      - DATABASE_NAME=keenetic_master
-      - DATABASE_USERNAME=postgres
-      - DATABASE_PASSWORD=postgres
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: keenetic_master
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,19 +76,17 @@ services:
     tty: true
     restart: always
     ports:
-      - "${WEB_HOST_PORT:-4568}:${WEB_PORT:-4568}"
+      - "${BACKEND_PORT:-3201}:3000"
     volumes:
       - .:/app
       - bundle_cache:/usr/local/bundle
     env_file: ".env"
     environment:
-      - WEB_PORT=${WEB_PORT:-4568}
-      - WEB_BIND=${WEB_BIND:-0.0.0.0}
-      - DATABASE_HOST=postgres
-      - DATABASE_PORT=5432
-      - DATABASE_NAME=keenetic_master
-      - DATABASE_USERNAME=postgres
-      - DATABASE_PASSWORD=postgres
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: keenetic_master
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,12 +96,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        REACT_APP_API_BASE_HOST: ${BACKEND_HOST:-localhost}
+        REACT_APP_API_BASE_PORT: ${BACKEND_PORT:-3201}
     image: keenetic-master-frontend:1.0.0
     restart: always
     ports:
-      - "${FRONTEND_HOST_PORT:-4567}:3000"
-    environment:
-      - REACT_APP_API_BASE_URL=http://backend:${WEB_PORT:-4568}
+      - "${FRONTEND_PORT:-3200}:3000"
     depends_on:
       - backend
 
