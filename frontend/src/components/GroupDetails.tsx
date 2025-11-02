@@ -328,7 +328,7 @@ const GroupDetails: React.FC = () => {
                 variant="warning"
                 className="me-2"
                 onClick={handleSyncToRouter}
-                disabled={generating || syncing || deleting || group.statistics.pending_routes === 0}
+                disabled={generating || syncing || deleting}
               >
                 {syncing ? (
                   <>

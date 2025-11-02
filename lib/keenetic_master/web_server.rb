@@ -14,6 +14,7 @@ require_relative 'get_group_router_routes'
 require_relative 'get_all_routes'
 require_relative 'database_router_sync'
 require_relative 'delete_routes'
+require_relative 'apply_route_changes'
 
 class KeeneticMaster
   class WebServer < Sinatra::Base
@@ -296,6 +297,7 @@ class KeeneticMaster
     end
 
     # API endpoint to sync routes to router for a domain group
+    # Replaces all routes for the group on the router with routes from the database
     post '/api/domains/:name/sync-router' do
       content_type :json
       begin
@@ -307,41 +309,117 @@ class KeeneticMaster
           return json error: "Domain group not found"
         end
 
-        logger.info("Starting router sync for group: #{group_name}")
+        logger.info("Starting router sync for group: #{group_name} - replacing all routes")
 
-        # Get routes that need to be synced for this group
-        pending_routes = Route.where(group_id: group.id, synced_to_router: false)
+        # Get all routes for this group from database
+        db_routes = Route.where(group_id: group.id).all
 
-        if pending_routes.empty?
-          json({
-            success: true,
-            message: "No routes to sync for group '#{group_name}'",
-            synced_count: 0
-          })
-        else
-          # Use UpdateRoutesDatabase to sync with router
-          result = UpdateRoutesDatabase.new.call
+        # Get all routes from router and filter by group comment
+        all_router_routes_result = GetAllRoutes.new.call
+        group_router_routes = []
+        if all_router_routes_result.success?
+          all_router_routes = all_router_routes_result.value!
+          # Filter routes that belong to this group by comment pattern [auto:group_name]
+          group_router_routes = all_router_routes.select do |route|
+            comment = route[:comment] || ''
+            comment.match(/\[auto:#{Regexp.escape(group_name)}\]/)
+          end
+        end
 
-          if result.success?
-            # Mark routes as synced
-            synced_count = pending_routes.count
-            pending_routes.update(synced_to_router: true, synced_at: Time.now)
-
-            # Log the operation
-            SyncLog.log_success('sync_router', 'domain_group', group.id)
-
+        if db_routes.empty?
+          # If no routes in database, delete all routes for this group from router
+          if group_router_routes.any?
+            routes_to_delete = group_router_routes.map { |r| { network: r[:network] || r[:dest], mask: r[:mask] || '255.255.255.255', comment: r[:comment] } }
+            delete_result = DeleteRoutes.call(routes_to_delete)
+            if delete_result.success?
+              deleted_count = group_router_routes.size
+              logger.info("Deleted #{deleted_count} routes from router for group '#{group_name}'")
+              json({
+                success: true,
+                message: "No routes to sync for group '#{group_name}'. Deleted #{deleted_count} routes from router.",
+                synced_count: 0,
+                deleted_count: deleted_count
+              })
+            else
+              logger.warn("Failed to delete routes from router: #{delete_result.failure}")
+              json({
+                success: true,
+                message: "No routes to sync for group '#{group_name}'",
+                synced_count: 0,
+                deleted_count: 0
+              })
+            end
+          else
             json({
               success: true,
-              message: "Successfully synced #{synced_count} routes to router for group '#{group_name}'",
-              synced_count: synced_count
+              message: "No routes to sync for group '#{group_name}'",
+              synced_count: 0,
+              deleted_count: 0
             })
-          else
-            error_message = result.failure.is_a?(Hash) ? result.failure.to_s : result.failure.to_s
-            SyncLog.log_error('sync_router', 'domain_group', error_message, group.id)
-
-            status 500
-            json error: error_message
           end
+        else
+          router_routes = group_router_routes
+
+          # Build sets of routes for comparison
+          db_route_keys = db_routes.map { |r| [r.network, r.mask, r.interface] }.to_set
+          router_route_keys = router_routes.map { |r| [r[:network] || r[:dest], r[:mask] || '255.255.255.255', r[:interface]] }.to_set
+
+          # Routes to delete: in router but not in database
+          routes_to_delete = router_routes.select do |router_route|
+            key = [router_route[:network] || router_route[:dest], router_route[:mask] || '255.255.255.255', router_route[:interface]]
+            !db_route_keys.include?(key)
+          end.map { |r| { network: r[:network] || r[:dest], mask: r[:mask] || '255.255.255.255', comment: r[:comment] } }
+
+          # Routes to add: all routes from database
+          routes_to_add = db_routes.map(&:to_keenetic_format)
+
+          deleted_count = 0
+          added_count = 0
+
+          # Delete obsolete routes from router
+          if routes_to_delete.any?
+            delete_result = DeleteRoutes.call(routes_to_delete)
+            if delete_result.success?
+              deleted_count = routes_to_delete.size
+              logger.info("Deleted #{deleted_count} obsolete routes from router for group '#{group_name}'")
+            else
+              error_message = delete_result.failure.to_s
+              logger.error("Failed to delete routes from router: #{error_message}")
+              # Continue anyway to try adding routes
+            end
+          end
+
+          # Add all routes from database to router
+          if routes_to_add.any?
+            add_result = ApplyRouteChanges.call(routes_to_add)
+            if add_result.success?
+              added_count = routes_to_add.size
+              # Mark all routes as synced
+              db_routes.each do |route|
+                route.update(synced_to_router: true, synced_at: Time.now)
+                SyncLog.log_success("add", "route", route.id)
+              end
+              logger.info("Added #{added_count} routes to router for group '#{group_name}'")
+            else
+              error_message = add_result.failure.to_s
+              # Log errors for each route
+              db_routes.each do |route|
+                SyncLog.log_error("add", "route", error_message, route.id)
+              end
+              logger.error("Failed to add routes to router: #{error_message}")
+              raise StandardError, "Failed to sync routes: #{error_message}"
+            end
+          end
+
+          # Log the operation
+          SyncLog.log_success('sync_router', 'domain_group', group.id)
+
+          json({
+            success: true,
+            message: "Successfully synced #{added_count} routes to router for group '#{group_name}'#{deleted_count > 0 ? " (deleted #{deleted_count} obsolete routes)" : ''}",
+            synced_count: added_count,
+            deleted_count: deleted_count
+          })
         end
       rescue => e
         logger.error("Error syncing routes to router for group '#{params[:name]}': #{e.message}")
