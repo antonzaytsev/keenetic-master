@@ -148,18 +148,17 @@ const DomainGroups: React.FC = () => {
     <>
       <Row>
         <Col>
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <h1>
-              <i className="fas fa-globe me-2"></i>
-              Domain Groups
-            </h1>
-            <Button 
-              variant="primary" 
-              onClick={() => navigate('/groups/add')}
-            >
-              <i className="fas fa-plus me-1"></i>
-              Add Group
-            </Button>
+          <div className="page-header">
+            <h1>Domain Groups</h1>
+            <div className="page-header-actions">
+              <Button 
+                variant="primary" 
+                onClick={() => navigate('/groups/add')}
+              >
+                <i className="fas fa-plus me-1"></i>
+                Add Group
+              </Button>
+            </div>
           </div>
         </Col>
       </Row>

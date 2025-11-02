@@ -200,12 +200,9 @@ const DnsLogs: React.FC = () => {
     <>
       <Row>
         <Col>
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <h1>
-              <i className="fas fa-file-alt me-2"></i>
-              DNS Processing Logs
-            </h1>
-            <div className="d-flex align-items-center">
+          <div className="page-header">
+            <h1>DNS Processing Logs</h1>
+            <div className="page-header-actions">
               <div className="me-3">
                 <small className="text-muted">
                   Total: <Badge bg="primary">{totalCount}</Badge>
@@ -216,8 +213,8 @@ const DnsLogs: React.FC = () => {
                   )}
                 </small>
               </div>
-              <Button variant="outline-primary" size="sm" onClick={() => loadDnsLogs(currentPage)} disabled={loading}>
-                <i className="fas fa-refresh me-1"></i>
+              <Button variant="outline-secondary" size="sm" onClick={() => loadDnsLogs(currentPage)} disabled={loading}>
+                <i className="fas fa-sync-alt me-1"></i>
                 {loading ? 'Loading...' : 'Refresh'}
               </Button>
             </div>
@@ -236,40 +233,40 @@ const DnsLogs: React.FC = () => {
       {stats && (
         <Row className="mb-4">
           <Col md={3}>
-            <Card className="h-100">
-              <Card.Body className="text-center">
-                <i className="fas fa-list fa-2x text-primary mb-2"></i>
-                <h4 className="mb-1">{stats.statistics.total_logs}</h4>
-                <small className="text-muted">Total Logs</small>
-              </Card.Body>
-            </Card>
+            <div className="metric-card">
+              <div className="metric-card-icon text-primary">
+                <i className="fas fa-list"></i>
+              </div>
+              <div className="metric-card-value">{stats.statistics.total_logs.toLocaleString()}</div>
+              <div className="metric-card-label">Total Logs</div>
+            </div>
           </Col>
           <Col md={3}>
-            <Card className="h-100">
-              <Card.Body className="text-center">
-                <i className="fas fa-route fa-2x text-success mb-2"></i>
-                <h4 className="mb-1">{stats.statistics.total_routes_processed}</h4>
-                <small className="text-muted">Routes Processed</small>
-              </Card.Body>
-            </Card>
+            <div className="metric-card">
+              <div className="metric-card-icon text-success">
+                <i className="fas fa-route"></i>
+              </div>
+              <div className="metric-card-value">{stats.statistics.total_routes_processed.toLocaleString()}</div>
+              <div className="metric-card-label">Routes Processed</div>
+            </div>
           </Col>
           <Col md={3}>
-            <Card className="h-100">
-              <Card.Body className="text-center">
-                <i className="fas fa-clock fa-2x text-info mb-2"></i>
-                <h4 className="mb-1">{stats.statistics.recent_24h}</h4>
-                <small className="text-muted">Last 24 Hours</small>
-              </Card.Body>
-            </Card>
+            <div className="metric-card">
+              <div className="metric-card-icon text-info">
+                <i className="fas fa-clock"></i>
+              </div>
+              <div className="metric-card-value">{stats.statistics.recent_24h.toLocaleString()}</div>
+              <div className="metric-card-label">Last 24 Hours</div>
+            </div>
           </Col>
           <Col md={3}>
-            <Card className="h-100">
-              <Card.Body className="text-center">
-                <i className="fas fa-layer-group fa-2x text-warning mb-2"></i>
-                <h4 className="mb-1">{Object.keys(stats.statistics.by_group).length}</h4>
-                <small className="text-muted">Active Groups</small>
-              </Card.Body>
-            </Card>
+            <div className="metric-card">
+              <div className="metric-card-icon text-warning">
+                <i className="fas fa-layer-group"></i>
+              </div>
+              <div className="metric-card-value">{Object.keys(stats.statistics.by_group).length}</div>
+              <div className="metric-card-label">Active Groups</div>
+            </div>
           </Col>
         </Row>
       )}

@@ -114,12 +114,9 @@ const IPAddresses: React.FC = () => {
     <>
       <Row>
         <Col>
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <h1>
-              <i className="fas fa-network-wired me-2"></i>
-              IP Address Routes
-            </h1>
-            <div className="d-flex align-items-center">
+          <div className="page-header">
+            <h1>IP Address Routes</h1>
+            <div className="page-header-actions">
               <div className="me-3">
                 <small className="text-muted">
                   Total: <Badge bg="primary">{stats.total}</Badge>{' '}

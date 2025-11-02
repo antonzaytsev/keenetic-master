@@ -22,7 +22,7 @@ function App() {
       <Router>
         <div className="App">
           <Navigation />
-          <div className="container mt-4">
+          <div className="content-container">
             <Routes>
               <Route path="/" element={<DomainGroups />} />
               <Route path="/groups/add" element={<AddGroup />} />

@@ -113,21 +113,18 @@ const RouterRoutes: React.FC = () => {
     <>
       <Row>
         <Col>
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <h1>
-              <i className="fas fa-router me-2"></i>
-              Router Routes
-            </h1>
-            <div className="d-flex align-items-center">
+          <div className="page-header">
+            <h1>Router Routes</h1>
+            <div className="page-header-actions">
               <div className="me-3">
                 <small className="text-muted">
                   Total: <Badge bg="primary">{routes.length}</Badge>{' '}
                   Filtered: <Badge bg="info">{filteredRoutes.length}</Badge>
                 </small>
               </div>
-              <Button variant="outline-primary" size="sm" onClick={loadRouterRoutes} disabled={loading}>
-                <i className="fas fa-refresh me-1"></i>
-                Refresh
+              <Button variant="outline-secondary" size="sm" onClick={loadRouterRoutes} disabled={loading}>
+                <i className="fas fa-sync-alt me-1"></i>
+                {loading ? 'Loading...' : 'Refresh'}
               </Button>
             </div>
           </div>

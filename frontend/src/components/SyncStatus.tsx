@@ -89,15 +89,12 @@ const SyncStatus: React.FC = () => {
     <>
       <Row>
         <Col>
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <h1>
-              <i className="fas fa-sync me-2"></i>
-              Sync Status
-            </h1>
-            <div className="d-flex align-items-center">
-              <Button variant="outline-primary" size="sm" onClick={loadSyncData}>
-                <i className="fas fa-refresh me-1"></i>
-                Refresh
+          <div className="page-header">
+            <h1>Sync Status</h1>
+            <div className="page-header-actions">
+              <Button variant="outline-secondary" size="sm" onClick={loadSyncData} disabled={loading}>
+                <i className="fas fa-sync-alt me-1"></i>
+                {loading ? 'Loading...' : 'Refresh'}
               </Button>
             </div>
           </div>
@@ -113,40 +110,40 @@ const SyncStatus: React.FC = () => {
       {/* Sync Statistics */}
       <Row className="mb-4">
         <Col md={3}>
-          <Card className="text-center">
-            <Card.Body>
-              <i className="fas fa-network-wired fa-2x text-primary mb-2"></i>
-              <h5 className="card-title">{syncData.statistics.total_routes}</h5>
-              <p className="card-text text-muted">Total Routes</p>
-            </Card.Body>
-          </Card>
+          <div className="metric-card">
+            <div className="metric-card-icon text-primary">
+              <i className="fas fa-network-wired"></i>
+            </div>
+            <div className="metric-card-value">{syncData.statistics.total_routes}</div>
+            <div className="metric-card-label">Total Routes</div>
+          </div>
         </Col>
         <Col md={3}>
-          <Card className="text-center">
-            <Card.Body>
-              <i className="fas fa-check-circle fa-2x text-success mb-2"></i>
-              <h5 className="card-title">{syncData.statistics.synced_routes}</h5>
-              <p className="card-text text-muted">Synced Routes</p>
-            </Card.Body>
-          </Card>
+          <div className="metric-card">
+            <div className="metric-card-icon text-success">
+              <i className="fas fa-check-circle"></i>
+            </div>
+            <div className="metric-card-value">{syncData.statistics.synced_routes}</div>
+            <div className="metric-card-label">Synced Routes</div>
+          </div>
         </Col>
         <Col md={3}>
-          <Card className="text-center">
-            <Card.Body>
-              <i className="fas fa-clock fa-2x text-warning mb-2"></i>
-              <h5 className="card-title">{syncData.statistics.pending_sync}</h5>
-              <p className="card-text text-muted">Pending Sync</p>
-            </Card.Body>
-          </Card>
+          <div className="metric-card">
+            <div className="metric-card-icon text-warning">
+              <i className="fas fa-clock"></i>
+            </div>
+            <div className="metric-card-value">{syncData.statistics.pending_sync}</div>
+            <div className="metric-card-label">Pending Sync</div>
+          </div>
         </Col>
         <Col md={3}>
-          <Card className="text-center">
-            <Card.Body>
-              <i className="fas fa-exclamation-triangle fa-2x text-danger mb-2"></i>
-              <h5 className="card-title">{syncData.statistics.stale_routes}</h5>
-              <p className="card-text text-muted">Stale Routes</p>
-            </Card.Body>
-          </Card>
+          <div className="metric-card">
+            <div className="metric-card-icon text-danger">
+              <i className="fas fa-exclamation-triangle"></i>
+            </div>
+            <div className="metric-card-value">{syncData.statistics.stale_routes}</div>
+            <div className="metric-card-label">Stale Routes</div>
+          </div>
         </Col>
       </Row>
 
