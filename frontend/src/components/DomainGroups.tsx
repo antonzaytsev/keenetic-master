@@ -2,9 +2,11 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Card, Row, Col, Form, Button, Alert, Badge, Table } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiService, DomainGroup } from '../services/api';
+import { useNotification } from '../contexts/NotificationContext';
 
 const DomainGroups: React.FC = () => {
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [domainGroups, setDomainGroups] = useState<DomainGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,9 +106,12 @@ const DomainGroups: React.FC = () => {
 
     try {
       await apiService.deleteDomainGroup(name);
+      showNotification('success', `Domain group "${name}" deleted successfully!`);
       await loadDomainGroups();
     } catch (err) {
-      setError(`Failed to delete domain group: ${err}`);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(`Failed to delete domain group: ${errorMessage}`);
+      showNotification('error', `Failed to delete domain group: ${errorMessage}`);
     }
   };
 

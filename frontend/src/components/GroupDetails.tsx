@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Alert, Badge, Table, Button, Breadcrumb } from 'react-bootstrap';
 import { Link, useParams } from 'react-router-dom';
 import { apiService, DomainGroup, Route } from '../services/api';
+import { useNotification } from '../contexts/NotificationContext';
 
 const GroupDetails: React.FC = () => {
   const { groupName } = useParams<{ groupName: string }>();
+  const { showNotification } = useNotification();
   const [group, setGroup] = useState<DomainGroup | null>(null);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [routerRoutes, setRouterRoutes] = useState<any[]>([]);
@@ -14,7 +16,6 @@ const GroupDetails: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const loadGroupDetails = async () => {
@@ -110,24 +111,19 @@ const GroupDetails: React.FC = () => {
     try {
       setGenerating(true);
       setError(null);
-      setSuccessMessage(null);
 
       const result = await apiService.generateIPs(groupName);
 
       if (result.success) {
-        setSuccessMessage(`${result.message} (Added: ${result.statistics.added}, Deleted: ${result.statistics.deleted}, Total: ${result.statistics.total}). Refreshing route data...`);
+        const message = `${result.message} (Added: ${result.statistics.added}, Deleted: ${result.statistics.deleted}, Total: ${result.statistics.total})`;
+        showNotification('success', message);
 
         // Reload database routes immediately
         const updatedRoutes = await apiService.getRoutes({ group_id: groupName });
-
-        // Small delay before refreshing router routes to allow time for routes to appear
-        setTimeout(async () => {
-          setSuccessMessage(`${result.message} (Added: ${result.statistics.added}, Deleted: ${result.statistics.deleted}, Total: ${result.statistics.total}). Database routes updated, refreshing router routes...`);
-          await loadRouterRoutes();
-          setSuccessMessage(`${result.message} (Added: ${result.statistics.added}, Deleted: ${result.statistics.deleted}, Total: ${result.statistics.total}). All route data updated!`);
-        }, 1000);
-
         setRoutes(updatedRoutes);
+
+        // Refresh router routes
+        await loadRouterRoutes();
 
         // Update group statistics if we have the group data
         if (group) {
@@ -145,7 +141,9 @@ const GroupDetails: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Error generating IPs:', err);
-      setError(`Failed to generate IP addresses: ${err.response?.data?.error || err.message}`);
+      const errorMessage = err.response?.data?.error || err.message;
+      setError(`Failed to generate IP addresses: ${errorMessage}`);
+      showNotification('error', `Failed to generate IP addresses: ${errorMessage}`);
     } finally {
       setGenerating(false);
     }
@@ -157,12 +155,11 @@ const GroupDetails: React.FC = () => {
     try {
       setSyncing(true);
       setError(null);
-      setSuccessMessage(null);
 
       const result = await apiService.syncToRouter(groupName);
 
       if (result.success) {
-        setSuccessMessage(`${result.message} Refreshing route data...`);
+        showNotification('success', result.message);
 
         // Reload the routes data to reflect sync status changes
         const updatedRoutes = await apiService.getRoutes({ group_id: groupName });
@@ -182,15 +179,13 @@ const GroupDetails: React.FC = () => {
         }
 
         // Refresh router routes to show newly synced routes
-        setTimeout(async () => {
-          setSuccessMessage(`${result.message} Refreshing router routes...`);
-          await loadRouterRoutes();
-          setSuccessMessage(`${result.message} All route data updated!`);
-        }, 500);
+        await loadRouterRoutes();
       }
     } catch (err: any) {
       console.error('Error syncing to router:', err);
-      setError(`Failed to sync to router: ${err.response?.data?.error || err.message}`);
+      const errorMessage = err.response?.data?.error || err.message;
+      setError(`Failed to sync to router: ${errorMessage}`);
+      showNotification('error', `Failed to sync to router: ${errorMessage}`);
     } finally {
       setSyncing(false);
     }
@@ -327,14 +322,7 @@ const GroupDetails: React.FC = () => {
         </Col>
       </Row>
 
-      {/* Success/Error Messages */}
-      {successMessage && (
-        <Alert variant="success" className="mb-4" dismissible onClose={() => setSuccessMessage(null)}>
-          <i className="fas fa-check-circle me-2"></i>
-          {successMessage}
-        </Alert>
-      )}
-
+      {/* Error Messages */}
       {error && (
         <Alert variant="danger" className="mb-4" dismissible onClose={() => setError(null)}>
           <i className="fas fa-exclamation-triangle me-2"></i>

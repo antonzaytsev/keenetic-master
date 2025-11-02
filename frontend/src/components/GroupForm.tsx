@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Form, Button, Alert, Badge, FloatingLabel } from 'react-bootstrap';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../services/api';
+import { useNotification } from '../contexts/NotificationContext';
 
 interface GroupFormData {
   name: string;
@@ -18,7 +19,8 @@ interface GroupFormProps {
 const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
   const navigate = useNavigate();
   const { groupName } = useParams<{ groupName: string }>();
-
+  const { showNotification } = useNotification();
+  
   const [formData, setFormData] = useState<GroupFormData>({
     name: '',
     mask: '',
@@ -26,13 +28,12 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
     domains: [],
     follow_dns: []
   });
-
+  
   const [domainsText, setDomainsText] = useState('');
   const [followDnsText, setFollowDnsText] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingGroup, setLoadingGroup] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   // Load existing group data when editing
   useEffect(() => {
@@ -96,7 +97,6 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
       [field]: value
     }));
     setError(null);
-    setSuccess(null);
   };
 
   const handleDomainsChange = (value: string) => {
@@ -106,7 +106,6 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
       .filter(d => d.length > 0);
     setFormData(prev => ({ ...prev, domains }));
     setError(null);
-    setSuccess(null);
   };
 
   const handleFollowDnsChange = (value: string) => {
@@ -116,7 +115,6 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
       .filter(d => d.length > 0);
     setFormData(prev => ({ ...prev, follow_dns: followDns }));
     setError(null);
-    setSuccess(null);
   };
 
   const validateForm = (): string | null => {
@@ -155,7 +153,6 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
     try {
       setLoading(true);
       setError(null);
-      setSuccess(null);
 
       // Prepare data for API
       let apiData: any = {};
@@ -189,23 +186,19 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
 
       if (mode === 'add') {
         await apiService.createDomainGroup(formData.name, apiData);
-        setSuccess(`Domain group "${formData.name}" created successfully!`);
-         // Redirect to group details page after a brief delay
-        setTimeout(() => {
-          navigate(`/groups/${formData.name}`);
-        }, 2000);
+        showNotification('success', `Domain group "${formData.name}" created successfully!`);
+        navigate(`/groups/${formData.name}`);
       } else {
         await apiService.updateDomainGroup(formData.name, apiData);
-        setSuccess(`Domain group "${formData.name}" updated successfully!`);
-        // Redirect to group details page after a brief delay
-        setTimeout(() => {
-          navigate(`/groups/${formData.name}`);
-        }, 2000);
+        showNotification('success', `Domain group "${formData.name}" updated successfully!`);
+        navigate(`/groups/${formData.name}`);
       }
 
     } catch (err: any) {
       console.error(`Failed to ${mode} group:`, err);
-      setError(`Failed to ${mode} group: ${err.response?.data?.error || err.message}`);
+      const errorMessage = err.response?.data?.error || err.message;
+      setError(`Failed to ${mode} group: ${errorMessage}`);
+      showNotification('error', `Failed to ${mode} group: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -245,13 +238,6 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
         <Alert variant="danger" dismissible onClose={() => setError(null)}>
           <i className="fas fa-exclamation-triangle me-2"></i>
           {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert variant="success" dismissible onClose={() => setSuccess(null)}>
-          <i className="fas fa-check-circle me-2"></i>
-          {success}
         </Alert>
       )}
 
