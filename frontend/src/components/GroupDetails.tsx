@@ -3,6 +3,7 @@ import { Card, Row, Col, Alert, Badge, Table, Button, Breadcrumb } from 'react-b
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { apiService, DomainGroup, Route } from '../services/api';
 import { useNotification } from '../contexts/NotificationContext';
+import ConfirmModal from './ConfirmModal';
 
 const GroupDetails: React.FC = () => {
   const { groupName } = useParams<{ groupName: string }>();
@@ -18,6 +19,7 @@ const GroupDetails: React.FC = () => {
   const [generating, setGenerating] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     const loadGroupDetails = async () => {
@@ -193,12 +195,14 @@ const GroupDetails: React.FC = () => {
     }
   };
 
-  const handleDeleteGroup = async () => {
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
     if (!groupName) return;
 
-    if (!window.confirm(`Are you sure you want to delete the domain group "${groupName}"? This action cannot be undone.`)) {
-      return;
-    }
+    setShowDeleteModal(false);
 
     try {
       setDeleting(true);
@@ -218,6 +222,10 @@ const GroupDetails: React.FC = () => {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
   };
 
   const getDomainsList = () => {
@@ -348,7 +356,7 @@ const GroupDetails: React.FC = () => {
               </Link>
               <Button
                 variant="danger"
-                onClick={handleDeleteGroup}
+                onClick={handleDeleteClick}
                 disabled={generating || syncing || deleting}
               >
                 {deleting ? (
@@ -732,6 +740,17 @@ const GroupDetails: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      <ConfirmModal
+        show={showDeleteModal}
+        title="Delete Domain Group"
+        message={`Are you sure you want to delete the domain group "${groupName}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
     </div>
   );
 };

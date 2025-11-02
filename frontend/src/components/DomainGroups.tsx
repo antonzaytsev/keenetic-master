@@ -3,6 +3,7 @@ import { Card, Row, Col, Form, Button, Alert, Badge, Table } from 'react-bootstr
 import { Link, useNavigate } from 'react-router-dom';
 import { apiService, DomainGroup } from '../services/api';
 import { useNotification } from '../contexts/NotificationContext';
+import ConfirmModal from './ConfirmModal';
 
 const DomainGroups: React.FC = () => {
   const navigate = useNavigate();
@@ -11,6 +12,8 @@ const DomainGroups: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTermRef = useRef<string>('');
 
@@ -99,20 +102,32 @@ const DomainGroups: React.FC = () => {
     setSearchTerm(e.target.value);
   }, []);
 
-  const handleDeleteGroup = async (name: string) => {
-    if (!window.confirm(`Are you sure you want to delete the domain group "${name}"?`)) {
-      return;
-    }
+  const handleDeleteClick = (name: string) => {
+    setGroupToDelete(name);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!groupToDelete) return;
+
+    setShowDeleteModal(false);
+    const nameToDelete = groupToDelete;
+    setGroupToDelete(null);
 
     try {
-      await apiService.deleteDomainGroup(name);
-      showNotification('success', `Domain group "${name}" deleted successfully!`);
+      await apiService.deleteDomainGroup(nameToDelete);
+      showNotification('success', `Domain group "${nameToDelete}" deleted successfully!`);
       await loadDomainGroups();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(`Failed to delete domain group: ${errorMessage}`);
       showNotification('error', `Failed to delete domain group: ${errorMessage}`);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setGroupToDelete(null);
   };
 
   const clearSearch = () => {
@@ -334,7 +349,7 @@ const DomainGroups: React.FC = () => {
                               <Button
                                 variant="outline-danger"
                                 size="sm"
-                                onClick={() => handleDeleteGroup(group.name)}
+                                onClick={() => handleDeleteClick(group.name)}
                                 title="Delete Group"
                               >
                                 <i className="fas fa-trash"></i>
@@ -369,6 +384,17 @@ const DomainGroups: React.FC = () => {
           </Col>
         </Row>
       )}
+
+      <ConfirmModal
+        show={showDeleteModal}
+        title="Delete Domain Group"
+        message={groupToDelete ? `Are you sure you want to delete the domain group "${groupToDelete}"?` : ''}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
     </div>
   );
 };
