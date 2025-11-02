@@ -197,7 +197,7 @@ const DnsLogs: React.FC = () => {
   }
 
   return (
-    <div className="fade-in">
+    <>
       <Row>
         <Col>
           <div className="d-flex justify-content-between align-items-center mb-4">
@@ -481,7 +481,7 @@ const DnsLogs: React.FC = () => {
           {renderPagination()}
         </Col>
       </Row>
-    </div>
+    </>
   );
 };
 

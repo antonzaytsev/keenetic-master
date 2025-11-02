@@ -218,7 +218,7 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
   }
 
   return (
-    <div className="fade-in">
+    <>
       <Row>
         <Col>
           <div className="d-flex justify-content-between align-items-center mb-4">
@@ -402,7 +402,7 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
           </Card>
         </Col>
       </Row>
-    </div>
+    </>
   );
 };
 

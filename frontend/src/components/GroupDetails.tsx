@@ -256,7 +256,7 @@ const GroupDetails: React.FC = () => {
 
   if (!loading && !group) {
     return (
-      <div className="fade-in">
+      <>
         <Breadcrumb>
           <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/' }}>Domain Groups</Breadcrumb.Item>
           <Breadcrumb.Item active>{groupName}</Breadcrumb.Item>
@@ -270,7 +270,7 @@ const GroupDetails: React.FC = () => {
           <i className="fas fa-arrow-left me-2"></i>
           Back to Groups
         </Link>
-      </div>
+      </>
     );
   }
 
@@ -281,7 +281,7 @@ const GroupDetails: React.FC = () => {
   }
 
   return (
-    <div className="fade-in">
+    <>
       <Breadcrumb>
         <Breadcrumb.Item linkAs={Link} linkProps={{ to: '/' }}>Domain Groups</Breadcrumb.Item>
         <Breadcrumb.Item active>{group.name}</Breadcrumb.Item>
@@ -751,7 +751,7 @@ const GroupDetails: React.FC = () => {
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
       />
-    </div>
+    </>
   );
 };
 

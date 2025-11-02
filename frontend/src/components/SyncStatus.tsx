@@ -86,7 +86,7 @@ const SyncStatus: React.FC = () => {
   }
 
   return (
-    <div className="fade-in">
+    <>
       <Row>
         <Col>
           <div className="d-flex justify-content-between align-items-center mb-4">
@@ -326,7 +326,7 @@ const SyncStatus: React.FC = () => {
           </Card>
         </Col>
       </Row>
-    </div>
+    </>
   );
 };
 
