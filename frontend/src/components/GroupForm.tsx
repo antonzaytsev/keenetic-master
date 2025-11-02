@@ -18,7 +18,7 @@ interface GroupFormProps {
 const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
   const navigate = useNavigate();
   const { groupName } = useParams<{ groupName: string }>();
-  
+
   const [formData, setFormData] = useState<GroupFormData>({
     name: '',
     mask: '',
@@ -26,7 +26,7 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
     domains: [],
     follow_dns: []
   });
-  
+
   const [domainsText, setDomainsText] = useState('');
   const [followDnsText, setFollowDnsText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -45,13 +45,13 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
     try {
       setLoadingGroup(true);
       setError(null);
-      
+
       const groupData = await apiService.getDomainGroup(groupName!);
-      
+
       // Convert the group data to our form format
       const domains: string[] = [];
       const followDns: string[] = [];
-      
+
       if (Array.isArray(groupData)) {
         // Simple array format - all are regular domains
         domains.push(...groupData);
@@ -63,7 +63,7 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
         if (groupData.follow_dns) {
           followDns.push(...groupData.follow_dns);
         }
-        
+
         setFormData(prev => ({
           ...prev,
           name: groupName!,
@@ -71,17 +71,17 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
           interfaces: groupData.settings?.interfaces || ''
         }));
       }
-      
+
       setDomainsText(domains.join('\n'));
       setFollowDnsText(followDns.join('\n'));
-      
+
       setFormData(prev => ({
         ...prev,
         name: groupName!,
         domains,
         follow_dns: followDns
       }));
-      
+
     } catch (err: any) {
       console.error('Failed to load group data:', err);
       setError(`Failed to load group data: ${err.response?.data?.error || err.message}`);
@@ -145,7 +145,7 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
@@ -159,14 +159,14 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
 
       // Prepare data for API
       let apiData: any = {};
-      
+
       // Add settings if we have mask or interfaces
       if (formData.mask || formData.interfaces) {
         apiData.settings = {};
         if (formData.mask) apiData.settings.mask = formData.mask;
         if (formData.interfaces) apiData.settings.interfaces = formData.interfaces;
       }
-      
+
       // Add domains
       if (formData.domains.length > 0) {
         if (Object.keys(apiData).length === 0) {
@@ -176,7 +176,7 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
           apiData.domains = formData.domains;
         }
       }
-      
+
       // Add follow_dns
       if (formData.follow_dns.length > 0) {
         if (Array.isArray(apiData)) {
@@ -190,15 +190,18 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
       if (mode === 'add') {
         await apiService.createDomainGroup(formData.name, apiData);
         setSuccess(`Domain group "${formData.name}" created successfully!`);
+         // Redirect to group details page after a brief delay
+        setTimeout(() => {
+          navigate(`/groups/${formData.name}`);
+        }, 2000);
       } else {
         await apiService.updateDomainGroup(formData.name, apiData);
         setSuccess(`Domain group "${formData.name}" updated successfully!`);
+        // Redirect to group details page after a brief delay
+        setTimeout(() => {
+          navigate(`/groups/${formData.name}`);
+        }, 2000);
       }
-
-      // Redirect back to domain groups list after a brief delay
-      setTimeout(() => {
-        navigate('/');
-      }, 2000);
 
     } catch (err: any) {
       console.error(`Failed to ${mode} group:`, err);
@@ -381,7 +384,7 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
               <div className="mb-3">
                 <h6><i className="fas fa-layer-group me-2 text-primary"></i>Group Name</h6>
                 <p className="small text-muted">
-                  Must be unique and cannot contain spaces or forward slashes. This name will be used 
+                  Must be unique and cannot contain spaces or forward slashes. This name will be used
                   to identify the group in routing rules and logs.
                 </p>
               </div>
@@ -397,7 +400,7 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
               <div className="mb-3">
                 <h6><i className="fas fa-eye me-2 text-warning"></i>Follow DNS Domains</h6>
                 <p className="small text-muted">
-                  These domains will be monitored through DNS request logs. When a request is made to 
+                  These domains will be monitored through DNS request logs. When a request is made to
                   these domains, their IPs will be automatically resolved and added to routing.
                 </p>
               </div>
