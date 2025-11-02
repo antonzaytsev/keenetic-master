@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, Row, Col, Form, Button, Alert, Badge, Table } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiService, DomainGroup } from '../services/api';
@@ -6,10 +6,11 @@ import { apiService, DomainGroup } from '../services/api';
 const DomainGroups: React.FC = () => {
   const navigate = useNavigate();
   const [domainGroups, setDomainGroups] = useState<DomainGroup[]>([]);
-  const [filteredGroups, setFilteredGroups] = useState<DomainGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchTermRef = useRef<string>('');
 
   const loadDomainGroups = useCallback(async () => {
     try {
@@ -17,40 +18,84 @@ const DomainGroups: React.FC = () => {
       const groups = await apiService.getDomainGroups();
       const safeGroups = Array.isArray(groups) ? groups : [];
       setDomainGroups(safeGroups);
-      setFilteredGroups(safeGroups);
       setError(null);
     } catch (err) {
       console.error('Failed to load domain groups:', err);
       setError(`Failed to load domain groups: ${err}`);
-      // Reset to empty arrays on error
       setDomainGroups([]);
-      setFilteredGroups([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    searchTermRef.current = searchTerm;
+  }, [searchTerm]);
+
+  useEffect(() => {
     loadDomainGroups();
 
     // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
-      if (!searchTerm.trim()) {
+      if (!searchTermRef.current.trim()) {
         loadDomainGroups();
       }
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [loadDomainGroups, searchTerm]);
+  }, [loadDomainGroups]);
 
-  useEffect(() => {
-    // Ensure domainGroups is always an array before filtering
+  const getAllDomainsFromGroup = useCallback((group: DomainGroup): string[] => {
+    const domains: string[] = [];
+    
+    if (!group.domains) {
+      return domains;
+    }
+    
+    // If domains is a simple array
+    if (Array.isArray(group.domains)) {
+      domains.push(...group.domains);
+    }
+    // If domains is an object/hash
+    else if (typeof group.domains === 'object') {
+      // Regular domains
+      if (Array.isArray(group.domains.domains)) {
+        domains.push(...group.domains.domains);
+      }
+      // Follow DNS domains
+      if (Array.isArray(group.domains.follow_dns)) {
+        domains.push(...group.domains.follow_dns);
+      }
+    }
+    
+    return domains;
+  }, []);
+
+  const filteredGroups = useMemo(() => {
     const safeGroups = Array.isArray(domainGroups) ? domainGroups : [];
-    const filtered = safeGroups.filter(group =>
-      group.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredGroups(filtered);
-  }, [searchTerm, domainGroups]);
+    if (!searchTerm.trim()) {
+      return safeGroups;
+    }
+    
+    const searchLower = searchTerm.toLowerCase();
+    
+    return safeGroups.filter(group => {
+      // Search by group name
+      if (group.name.toLowerCase().includes(searchLower)) {
+        return true;
+      }
+      
+      // Search by domains
+      const allDomains = getAllDomainsFromGroup(group);
+      return allDomains.some(domain => 
+        domain.toLowerCase().includes(searchLower)
+      );
+    });
+  }, [searchTerm, domainGroups, getAllDomainsFromGroup]);
+
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  }, []);
 
   const handleDeleteGroup = async (name: string) => {
     if (!window.confirm(`Are you sure you want to delete the domain group "${name}"?`)) {
@@ -117,10 +162,11 @@ const DomainGroups: React.FC = () => {
                         <i className="fas fa-search"></i>
                       </span>
                       <Form.Control
+                        ref={searchInputRef}
                         type="text"
-                        placeholder="Search domain groups..."
+                        placeholder="Search by group name or domain..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={handleSearchChange}
                       />
                     </div>
                   </Col>
