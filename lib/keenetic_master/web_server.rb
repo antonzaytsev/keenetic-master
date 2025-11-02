@@ -15,6 +15,7 @@ require_relative 'get_all_routes'
 require_relative 'database_router_sync'
 require_relative 'delete_routes'
 require_relative 'apply_route_changes'
+require_relative 'correct_interface'
 
 class KeeneticMaster
   class WebServer < Sinatra::Base
@@ -314,15 +315,28 @@ class KeeneticMaster
         # Get all routes for this group from database
         db_routes = Route.where(group_id: group.id).all
 
-        # Get all routes from router and filter by group comment
+        # Get all routes from router and filter by group comment or network match
         all_router_routes_result = GetAllRoutes.new.call
         group_router_routes = []
         if all_router_routes_result.success?
           all_router_routes = all_router_routes_result.value!
+          # Get database network addresses for this group as fallback
+          db_networks = db_routes.map { |r| [r.network, r.mask] }.to_set
+
           # Filter routes that belong to this group by comment pattern [auto:group_name]
+          # OR by matching network+mask if comment is missing
           group_router_routes = all_router_routes.select do |route|
             comment = route[:comment] || ''
-            comment.match(/\[auto:#{Regexp.escape(group_name)}\]/)
+            network = route[:network] || route[:dest]
+            mask = route[:mask] || route[:genmask] || '255.255.255.255'
+
+            # Match by comment pattern first
+            comment_match = comment.match(/\[auto:#{Regexp.escape(group_name)}\]/)
+
+            # Fallback: match by network+mask if comment is missing or doesn't match
+            network_match = network && db_networks.include?([network, mask])
+
+            comment_match || network_match
           end
         end
 
@@ -360,36 +374,41 @@ class KeeneticMaster
         else
           router_routes = group_router_routes
 
-          # Build sets of routes for comparison
-          db_route_keys = db_routes.map { |r| [r.network, r.mask, r.interface] }.to_set
-          router_route_keys = router_routes.map { |r| [r[:network] || r[:dest], r[:mask] || '255.255.255.255', r[:interface]] }.to_set
-
-          # Routes to delete: in router but not in database
-          routes_to_delete = router_routes.select do |router_route|
-            key = [router_route[:network] || router_route[:dest], router_route[:mask] || '255.255.255.255', router_route[:interface]]
-            !db_route_keys.include?(key)
-          end.map { |r| { network: r[:network] || r[:dest], mask: r[:mask] || '255.255.255.255', comment: r[:comment] } }
-
-          # Routes to add: all routes from database
-          routes_to_add = db_routes.map(&:to_keenetic_format)
-
           deleted_count = 0
           added_count = 0
 
-          # Delete obsolete routes from router
-          if routes_to_delete.any?
+          # Step 1: Delete ALL existing routes for this group from router
+          # This ensures a clean state before adding routes
+          if group_router_routes.any?
+            routes_to_delete = group_router_routes.map do |r|
+              {
+                network: r[:network] || r[:dest],
+                mask: r[:mask] || r[:genmask] || '255.255.255.255',
+                comment: r[:comment]
+              }
+            end
+
             delete_result = DeleteRoutes.call(routes_to_delete)
             if delete_result.success?
               deleted_count = routes_to_delete.size
-              logger.info("Deleted #{deleted_count} obsolete routes from router for group '#{group_name}'")
+              logger.info("Deleted #{deleted_count} existing routes from router for group '#{group_name}'")
             else
               error_message = delete_result.failure.to_s
-              logger.error("Failed to delete routes from router: #{error_message}")
-              # Continue anyway to try adding routes
+              logger.warn("Failed to delete some routes from router: #{error_message}")
+              # Continue anyway to try adding routes - partial cleanup is ok
             end
           end
 
-          # Add all routes from database to router
+          # Step 2: Add ALL routes from database to router with corrected interface names
+          routes_to_add = db_routes.map do |route|
+            route_data = route.to_keenetic_format
+            # Correct interface name if needed (e.g., "latvia" -> "Wireguard2")
+            if route_data[:interface]
+              route_data[:interface] = CorrectInterface.call(route_data[:interface])
+            end
+            route_data
+          end
+
           if routes_to_add.any?
             add_result = ApplyRouteChanges.call(routes_to_add)
             if add_result.success?
