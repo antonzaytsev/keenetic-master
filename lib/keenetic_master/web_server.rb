@@ -13,6 +13,7 @@ require_relative 'update_routes_database'
 require_relative 'get_group_router_routes'
 require_relative 'get_all_routes'
 require_relative 'database_router_sync'
+require_relative 'delete_routes'
 
 class KeeneticMaster
   class WebServer < Sinatra::Base
@@ -32,6 +33,7 @@ class KeeneticMaster
     # CORS preflight requests
     options '*' do
       response.headers['Allow'] = 'GET, POST, PUT, DELETE, OPTIONS'
+      response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
       response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type, Accept, X-User-Email, X-Auth-Token'
       response.headers['Access-Control-Allow-Origin'] = '*'
       200
@@ -39,6 +41,8 @@ class KeeneticMaster
 
     before do
       response.headers['Access-Control-Allow-Origin'] = '*'
+      response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+      response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type, Accept, X-User-Email, X-Auth-Token'
       content_type :json if request.path_info.start_with?('/api')
     end
 
@@ -78,6 +82,39 @@ class KeeneticMaster
         group = DomainGroup.find(name: name)
         return false unless group
 
+        # Get all routes for this group that are synced to the router
+        synced_routes = Route.where(group_id: group.id, synced_to_router: true).all
+
+        # Delete routes from router if any exist
+        if synced_routes.any?
+          logger.info("Deleting #{synced_routes.size} routes from router for group '#{name}'")
+
+          routes_to_delete = synced_routes.map { |r| { network: r.network, mask: r.mask, comment: r.comment } }
+          delete_result = DeleteRoutes.call(routes_to_delete)
+
+          if delete_result.success?
+            logger.info("Successfully deleted #{synced_routes.size} routes from router")
+
+            # Log successful deletion for each route
+            synced_routes.each do |route|
+              SyncLog.log_success("delete", "route", route.id)
+            end
+          else
+            error_message = delete_result.failure.to_s
+            logger.error("Failed to delete routes from router: #{error_message}")
+
+            # Log errors for each route
+            synced_routes.each do |route|
+              SyncLog.log_error("delete", "route", error_message, route.id)
+            end
+
+            # Still proceed with group deletion even if router deletion fails
+            # This allows cleanup of database even if router is unreachable
+            logger.warn("Proceeding with group deletion despite router deletion failure")
+          end
+        end
+
+        # Delete the group (this will cascade delete routes from database)
         group.destroy
         logger.info("Domain group '#{name}' deleted successfully from database")
         true

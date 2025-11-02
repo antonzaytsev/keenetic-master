@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Alert, Badge, Table, Button, Breadcrumb } from 'react-bootstrap';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { apiService, DomainGroup, Route } from '../services/api';
 import { useNotification } from '../contexts/NotificationContext';
 
 const GroupDetails: React.FC = () => {
   const { groupName } = useParams<{ groupName: string }>();
+  const navigate = useNavigate();
   const { showNotification } = useNotification();
   const [group, setGroup] = useState<DomainGroup | null>(null);
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -16,6 +17,7 @@ const GroupDetails: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const loadGroupDetails = async () => {
@@ -191,6 +193,33 @@ const GroupDetails: React.FC = () => {
     }
   };
 
+  const handleDeleteGroup = async () => {
+    if (!groupName) return;
+
+    if (!window.confirm(`Are you sure you want to delete the domain group "${groupName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      setError(null);
+
+      const result = await apiService.deleteDomainGroup(groupName);
+
+      if (result.success) {
+        showNotification('success', result.message || `Domain group "${groupName}" deleted successfully!`);
+        navigate('/');
+      }
+    } catch (err: any) {
+      console.error('Error deleting group:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      setError(`Failed to delete group: ${errorMessage}`);
+      showNotification('error', `Failed to delete group: ${errorMessage}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const getDomainsList = () => {
     if (!group || !group.domains) return { regular: [], followDns: [] };
 
@@ -273,7 +302,7 @@ const GroupDetails: React.FC = () => {
                 variant="success"
                 className="me-2"
                 onClick={handleGenerateIPs}
-                disabled={generating || syncing}
+                disabled={generating || syncing || deleting}
               >
                 {generating ? (
                   <>
@@ -291,7 +320,7 @@ const GroupDetails: React.FC = () => {
                 variant="warning"
                 className="me-2"
                 onClick={handleSyncToRouter}
-                disabled={generating || syncing || group.statistics.pending_routes === 0}
+                disabled={generating || syncing || deleting || group.statistics.pending_routes === 0}
               >
                 {syncing ? (
                   <>
@@ -312,11 +341,28 @@ const GroupDetails: React.FC = () => {
               </Button>
               <Link
                 to={`/ip-addresses?group_id=${group.id}`}
-                className="btn btn-primary"
+                className="btn btn-primary me-2"
               >
                 <i className="fas fa-network-wired me-1"></i>
                 View All Routes
               </Link>
+              <Button
+                variant="danger"
+                onClick={handleDeleteGroup}
+                disabled={generating || syncing || deleting}
+              >
+                {deleting ? (
+                  <>
+                    <div className="loading-spinner me-2"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-trash me-1"></i>
+                    Delete Group
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </Col>
