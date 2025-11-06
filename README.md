@@ -145,10 +145,6 @@ WEB_PORT=4567            # Port for the web server (default: 4567)
 WEB_BIND=0.0.0.0         # Bind address (default: 0.0.0.0)
 WEB_HOST_PORT=4567       # Host port mapping for Docker (default: 4567)
 
-# DNS logs monitoring (optional)
-DNS_LOGS_HOST_PATH=./tmp/dns.log
-DNS_LOGS_CONTAINER_PATH=/app/logs/dns.log
-
 # Optional overrides
 GITHUB_META_URL=https://api.github.com/meta
 COOKIE_FILE=config/cookie
