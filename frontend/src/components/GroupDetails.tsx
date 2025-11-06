@@ -126,6 +126,47 @@ const GroupDetails: React.FC = () => {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
   };
 
+  const maskToCIDR = (mask: string): string => {
+    // If already in CIDR format (starts with /), return as is
+    if (mask.startsWith('/')) {
+      return mask;
+    }
+
+    // Map of subnet masks to CIDR notation
+    const maskToCIDRMap: { [key: string]: string } = {
+      '255.0.0.0': '/8',
+      '255.255.0.0': '/16',
+      '255.255.128.0': '/17',
+      '255.255.224.0': '/19',
+      '255.255.240.0': '/20',
+      '255.255.248.0': '/21',
+      '255.255.252.0': '/22',
+      '255.255.255.0': '/24',
+      '255.255.255.128': '/25',
+      '255.255.255.192': '/26',
+      '255.255.255.224': '/27',
+      '255.255.255.240': '/28',
+      '255.255.255.248': '/29',
+      '255.255.255.252': '/30',
+      '255.255.255.254': '/31',
+      '255.255.255.255': '/32',
+    };
+
+    return maskToCIDRMap[mask] || mask;
+  };
+
+  const ipToNumber = (ip: string): number => {
+    return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0);
+  };
+
+  const sortIPs = (routes: any[]): any[] => {
+    return [...routes].sort((a, b) => {
+      const ipA = a.network || a.dest || '';
+      const ipB = b.network || b.dest || '';
+      return ipToNumber(ipA) - ipToNumber(ipB);
+    });
+  };
+
   const loadRouterRoutes = async () => {
     if (!groupName) return;
 
@@ -447,6 +488,56 @@ const GroupDetails: React.FC = () => {
     }
 
     return { regular: [], followDns: [] };
+  };
+
+  const getDomainRouteInfo = (domainName: string) => {
+    if (!routes) {
+      return {
+        dbRoutes: [],
+        routerRoutes: [],
+        isSynced: false,
+        createdDate: null
+      };
+    }
+
+    // Find database routes for this domain by parsing comment field
+    // Comment format: [auto:group_name] domain_name
+    const dbRoutesForDomain = routes.filter(route => {
+      if (!route.comment) return false;
+      const commentMatch = route.comment.match(/\[auto:[^\]]+\]\s*(.+)$/);
+      return commentMatch && commentMatch[1] === domainName;
+    });
+
+    // Find router routes that match database routes by network/mask
+    const routerRoutesForDomain = routerRoutes.filter(routerRoute => {
+      return dbRoutesForDomain.some(dbRoute => {
+        const routerNetwork = routerRoute.network || routerRoute.dest;
+        const routerMask = routerRoute.mask || routerRoute.genmask || '255.255.255.255';
+        return routerNetwork === dbRoute.network && routerMask === dbRoute.mask;
+      });
+    });
+
+    // Check if all database routes are synced
+    const isSynced = dbRoutesForDomain.length > 0 && 
+      dbRoutesForDomain.every(route => route.synced_to_router) &&
+      dbRoutesForDomain.length === routerRoutesForDomain.length;
+
+    // Get earliest created date from routes
+    const createdDate = dbRoutesForDomain.length > 0
+      ? dbRoutesForDomain.reduce((earliest, route) => {
+          const routeDate = route.created_at ? new Date(route.created_at) : null;
+          if (!earliest) return routeDate;
+          if (!routeDate) return earliest;
+          return routeDate < earliest ? routeDate : earliest;
+        }, null as Date | null)
+      : null;
+
+    return {
+      dbRoutes: dbRoutesForDomain,
+      routerRoutes: routerRoutesForDomain,
+      isSynced,
+      createdDate
+    };
   };
 
   if (loading) {
@@ -782,34 +873,110 @@ const GroupDetails: React.FC = () => {
                 </div>
               </div>
 
-              {/* Domain list */}
+              {/* Domain table */}
               {domains.regular.length > 0 ? (
-                <Row>
-                  {domains.regular.map((domain: string, index: number) => (
-                    <Col key={index} md={6} lg={4} className="mb-2">
-                      <div className="domain-item d-flex justify-content-between align-items-center">
-                        <span>
-                          <i className="fas fa-globe fa-xs me-2 text-primary"></i>
-                          {domain}
-                        </span>
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="text-danger p-0 ms-2"
-                          onClick={() => handleDeleteDomain(domain, 'regular')}
-                          disabled={deletingDomain === domain}
-                          title="Delete domain"
-                        >
-                          {deletingDomain === domain ? (
-                            <div className="loading-spinner" style={{ width: '12px', height: '12px' }}></div>
-                          ) : (
-                            <i className="fas fa-times"></i>
-                          )}
-                        </Button>
-                      </div>
-                    </Col>
-                  ))}
-                </Row>
+                <div className="table-responsive">
+                  <Table hover className="mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th>Domain Name</th>
+                        <th>When Added</th>
+                        <th>IP Addresses in Database</th>
+                        <th>IP Addresses in Router</th>
+                        <th>Sync Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {domains.regular.map((domain: string, index: number) => {
+                        const routeInfo = getDomainRouteInfo(domain);
+
+                        return (
+                          <tr key={index}>
+                            <td>
+                              <i className="fas fa-globe fa-xs me-2 text-primary"></i>
+                              <code className="text-primary">{domain}</code>
+                            </td>
+                            <td>
+                              {routeInfo.createdDate ? (
+                                <small className="text-muted">
+                                  {formatDate(routeInfo.createdDate.toISOString())}
+                                </small>
+                              ) : (
+                                <span className="text-muted">-</span>
+                              )}
+                            </td>
+                            <td>
+                              {routeInfo.dbRoutes.length > 0 ? (
+                                <div>
+                                  {sortIPs(routeInfo.dbRoutes).map((route, idx) => (
+                                    <div key={idx} className="mb-1">
+                                      <Badge bg="info">
+                                        {route.network}{maskToCIDR(route.mask)}
+                                      </Badge>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-muted">-</span>
+                              )}
+                            </td>
+                            <td>
+                              {routeInfo.routerRoutes.length > 0 ? (
+                                <div>
+                                  {sortIPs(routeInfo.routerRoutes).map((route, idx) => {
+                                    const network = route.network || route.dest;
+                                    const mask = route.mask || route.genmask || '255.255.255.255';
+                                    return (
+                                      <div key={idx} className="mb-1">
+                                        <Badge bg="success">
+                                          {network}{maskToCIDR(mask)}
+                                        </Badge>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <span className="text-muted">-</span>
+                              )}
+                            </td>
+                            <td>
+                              {routeInfo.dbRoutes.length > 0 ? (
+                                routeInfo.isSynced ? (
+                                  <span className="status-badge status-synced">
+                                    <i className="fas fa-check me-1"></i>Synced
+                                  </span>
+                                ) : (
+                                  <span className="status-badge status-unsynced">
+                                    <i className="fas fa-times me-1"></i>Not Synced
+                                  </span>
+                                )
+                              ) : (
+                                <span className="text-muted">No routes</span>
+                              )}
+                            </td>
+                            <td>
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="text-muted p-0"
+                                onClick={() => handleDeleteDomain(domain, 'regular')}
+                                disabled={deletingDomain === domain}
+                                title="Delete domain"
+                              >
+                                {deletingDomain === domain ? (
+                                  <div className="loading-spinner" style={{ width: '12px', height: '12px' }}></div>
+                                ) : (
+                                  <i className="fas fa-trash"></i>
+                                )}
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </Table>
+                </div>
               ) : (
                 <div className="text-muted text-center py-3">
                   <i className="fas fa-info-circle me-2"></i>
@@ -881,7 +1048,7 @@ const GroupDetails: React.FC = () => {
                         <Button
                           variant="link"
                           size="sm"
-                          className="text-danger p-0 ms-2"
+                          className="text-muted p-0 ms-2"
                           onClick={() => handleDeleteDomain(domain, 'follow_dns')}
                           disabled={deletingDomain === domain}
                           title="Delete domain"
@@ -889,7 +1056,7 @@ const GroupDetails: React.FC = () => {
                           {deletingDomain === domain ? (
                             <div className="loading-spinner" style={{ width: '12px', height: '12px' }}></div>
                           ) : (
-                            <i className="fas fa-times"></i>
+                            <i className="fas fa-trash"></i>
                           )}
                         </Button>
                       </div>
