@@ -40,52 +40,65 @@ class DomainGroup < Sequel::Model(:domain_groups)
     regular_domains = domains_dataset.where(type: 'regular').map(:domain)
     follow_dns_domains = domains_dataset.where(type: 'follow_dns').map(:domain)
     
+    # Add regular domains
     if regular_domains.any?
       if result.any?
+        # We have settings, so use hash format
         result['domains'] = regular_domains
       else
-        return regular_domains
+        # No settings - use simple array format if no follow_dns, otherwise use hash
+        if follow_dns_domains.any?
+          result['domains'] = regular_domains
+          result['follow_dns'] = follow_dns_domains
+          return result
+        else
+          return regular_domains
+        end
       end
     end
     
-    result['follow_dns'] = follow_dns_domains if follow_dns_domains.any?
+    # Always include follow_dns if it exists
+    if follow_dns_domains.any?
+      result['follow_dns'] = follow_dns_domains
+    end
     
+    # Return result if it has content, otherwise return empty array for backward compatibility
     result.any? ? result : []
   end
 
   # Create domain group from hash (for migration from YAML)
   def self.from_hash(name, data)
     group_params = { name: name }
-    
+
     if data.is_a?(Hash)
       if data['settings']
         group_params[:mask] = data['settings']['mask']
         group_params[:interfaces] = data['settings']['interfaces']
       end
-      
+
       group = create(group_params)
-      
+
       # Add regular domains
       if data['domains']
         data['domains'].each do |domain|
-          group.add_domain(domain_name: domain, type: 'regular')
+          group.add_domain(domain: domain, type: 'regular')
         end
       end
-      
+
       # Add follow_dns domains
       if data['follow_dns']
         data['follow_dns'].each do |domain|
-          group.add_domain(domain_name: domain, type: 'follow_dns')
+          group.add_domain(domain: domain, type: 'follow_dns')
         end
       end
     else
       # Simple array format
       group = create(group_params)
       data.each do |domain|
-        group.add_domain(domain_name: domain, type: 'regular')
+        group.add_domain(domain: domain, type: 'regular')
       end
     end
-    
+
     group
   end
 end

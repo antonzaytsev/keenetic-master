@@ -6,6 +6,7 @@ require 'sinatra/json'
 require 'sinatra/cross_origin'
 require 'yaml'
 require 'json'
+require 'uri'
 require_relative '../database'
 require_relative '../models'
 require_relative 'update_domain_routes'
@@ -74,11 +75,9 @@ class KeeneticMaster
 
       def save_domain_group(name, data)
         Database.connection.transaction do
-          # Delete existing group if it exists
           existing_group = DomainGroup.find(name: name)
           existing_group.destroy if existing_group
 
-          # Create new group from data
           DomainGroup.from_hash(name, data)
         end
         logger.info("Domain group '#{name}' saved successfully to database")
@@ -237,6 +236,183 @@ class KeeneticMaster
           json error: "Domain group not found"
         end
       rescue => e
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint to update group by ID (for renaming and other updates)
+    put '/api/domain-groups/:id' do
+      content_type :json
+      begin
+        group_id = params[:id].to_i
+        group = DomainGroup[group_id]
+
+        unless group
+          status 404
+          return json error: "Domain group not found"
+        end
+
+        request_body = JSON.parse(request.body.read)
+
+        # Update group name if provided
+        if request_body['name'] && request_body['name'] != group.name
+          # Check if new name already exists
+          existing = DomainGroup.find(name: request_body['name'])
+          if existing && existing.id != group_id
+            status 400
+            return json error: "Domain group with name '#{request_body['name']}' already exists"
+          end
+          old_name = group.name
+          group.update(name: request_body['name'])
+          logger.info("Domain group #{group_id} renamed from '#{old_name}' to '#{request_body['name']}'")
+        end
+
+        # Update mask if provided
+        if request_body.key?('mask')
+          group.update(mask: request_body['mask'])
+        end
+
+        # Update interfaces if provided
+        if request_body.key?('interfaces')
+          group.update(interfaces: request_body['interfaces'])
+        end
+
+        json success: true, message: "Domain group updated successfully"
+      rescue JSON::ParserError
+        status 400
+        json error: "Invalid JSON format"
+      rescue => e
+        logger.error("Error updating domain group: #{e.message}")
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint to get domains for a group with type information
+    get '/api/domain-groups/:id/domains' do
+      content_type :json
+      begin
+        group_id = params[:id].to_i
+        group = DomainGroup[group_id]
+
+        unless group
+          status 404
+          return json error: "Domain group not found"
+        end
+
+        # Get all domains with their type information - explicitly convert to plain hash
+        domains_array = []
+        group.domains_dataset.order(:domain).each do |domain|
+          domains_array << {
+            id: domain.id.to_i,
+            domain: domain.domain.to_s,
+            type: domain.type.to_s
+          }
+        end
+
+        regular_count = domains_array.count { |d| d[:type] == 'regular' }
+        follow_dns_count = domains_array.count { |d| d[:type] == 'follow_dns' }
+
+        response_data = {
+          group_id: group_id,
+          group_name: group.name.to_s,
+          domains: domains_array,
+          statistics: {
+            total: domains_array.length,
+            regular: regular_count,
+            follow_dns: follow_dns_count
+          }
+        }
+
+        json response_data
+      rescue => e
+        logger.error("Error getting domains for group: #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint to add a domain to a group
+    post '/api/domain-groups/:id/domains' do
+      content_type :json
+      begin
+        group_id = params[:id].to_i
+        request_body = JSON.parse(request.body.read)
+        domain_name = request_body['domain']&.strip
+        domain_type = request_body['type'] || 'regular' # 'regular' or 'follow_dns'
+
+        unless domain_name && !domain_name.empty?
+          status 400
+          return json error: "Domain name is required"
+        end
+
+        unless ['regular', 'follow_dns'].include?(domain_type)
+          status 400
+          return json error: "Invalid domain type. Must be 'regular' or 'follow_dns'"
+        end
+
+        group = DomainGroup[group_id]
+        unless group
+          status 404
+          return json error: "Domain group not found"
+        end
+
+        # Check if domain already exists in this group with the same type
+        existing = group.domains_dataset.where(domain: domain_name, type: domain_type).first
+        if existing
+          status 400
+          return json error: "Domain '#{domain_name}' already exists in this group as #{domain_type} domain"
+        end
+        
+        # Also check if it exists with a different type (informational)
+        existing_other_type = group.domains_dataset.where(domain: domain_name).where(Sequel.~(type: domain_type)).first
+        if existing_other_type
+          logger.warn("Domain '#{domain_name}' exists in group '#{group.name}' as #{existing_other_type.type} domain, but adding as #{domain_type}")
+        end
+
+        # Add the domain
+        Domain.create(group_id: group_id, domain: domain_name, type: domain_type)
+        logger.info("Domain '#{domain_name}' added to group '#{group.name}' (type: #{domain_type})")
+
+        json success: true, message: "Domain '#{domain_name}' added successfully"
+      rescue JSON::ParserError
+        status 400
+        json error: "Invalid JSON format"
+      rescue => e
+        logger.error("Error adding domain: #{e.message}")
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint to delete a domain from a group
+    delete '/api/domain-groups/:id/domains/:domain' do
+      content_type :json
+      begin
+        group_id = params[:id].to_i
+        domain_name = URI.decode_www_form_component(params[:domain])
+        domain_type = params[:type] || 'regular' # 'regular' or 'follow_dns'
+
+        group = DomainGroup[group_id]
+        unless group
+          status 404
+          return json error: "Domain group not found"
+        end
+
+        domain = group.domains_dataset.where(domain: domain_name, type: domain_type).first
+        unless domain
+          status 404
+          return json error: "Domain '#{domain_name}' not found in group"
+        end
+
+        domain.destroy
+        logger.info("Domain '#{domain_name}' deleted from group '#{group.name}'")
+
+        json success: true, message: "Domain '#{domain_name}' deleted successfully"
+      rescue => e
+        logger.error("Error deleting domain: #{e.message}")
         status 500
         json error: e.message
       end

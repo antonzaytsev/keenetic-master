@@ -338,13 +338,6 @@ const DomainGroups: React.FC = () => {
                               >
                                 <i className="fas fa-eye"></i>
                               </Link>
-                              <Link
-                                to={`/groups/${group.name}/edit`}
-                                className="btn btn-outline-secondary btn-sm"
-                                title="Edit Group"
-                              >
-                                <i className="fas fa-edit"></i>
-                              </Link>
                               <Button
                                 variant="outline-danger"
                                 size="sm"

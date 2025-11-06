@@ -9,6 +9,23 @@ const api = axios.create({
   },
 });
 
+export interface Domain {
+  id: number;
+  domain: string;
+  type: 'regular' | 'follow_dns';
+}
+
+export interface GroupDomainsResponse {
+  group_id: number;
+  group_name: string;
+  domains: Domain[];
+  statistics: {
+    total: number;
+    regular: number;
+    follow_dns: number;
+  };
+}
+
 export interface DomainGroup {
   id: number;
   name: string;
@@ -124,8 +141,29 @@ export const apiService = {
     return response.data;
   },
 
+  updateDomainGroupById: async (id: number, data: { name?: string; mask?: string; interfaces?: string }): Promise<any> => {
+    const response = await api.put(`/api/domain-groups/${id}`, data);
+    return response.data;
+  },
+
   deleteDomainGroup: async (name: string): Promise<any> => {
     const response = await api.delete(`/api/domains/${name}`);
+    return response.data;
+  },
+
+  getGroupDomains: async (groupId: number): Promise<GroupDomainsResponse> => {
+    const response = await api.get(`/api/domain-groups/${groupId}/domains`);
+    return response.data;
+  },
+
+  addDomainToGroup: async (groupId: number, domain: string, type: 'regular' | 'follow_dns' = 'regular'): Promise<any> => {
+    const response = await api.post(`/api/domain-groups/${groupId}/domains`, { domain, type });
+    return response.data;
+  },
+
+  deleteDomainFromGroup: async (groupId: number, domain: string, type: 'regular' | 'follow_dns' = 'regular'): Promise<any> => {
+    const encodedDomain = encodeURIComponent(domain);
+    const response = await api.delete(`/api/domain-groups/${groupId}/domains/${encodedDomain}?type=${type}`);
     return response.data;
   },
 

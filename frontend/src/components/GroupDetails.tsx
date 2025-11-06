@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Alert, Badge, Table, Button, Breadcrumb } from 'react-bootstrap';
+import { Card, Row, Col, Alert, Badge, Table, Button, Breadcrumb, Form } from 'react-bootstrap';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { apiService, DomainGroup, Route } from '../services/api';
+import { apiService, DomainGroup, Route, Domain } from '../services/api';
 import { useNotification } from '../contexts/NotificationContext';
 import ConfirmModal from './ConfirmModal';
 
@@ -20,6 +20,14 @@ const GroupDetails: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [editingGroupName, setEditingGroupName] = useState(false);
+  const [groupNameValue, setGroupNameValue] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  const [deletingDomain, setDeletingDomain] = useState<string | null>(null);
+  const [newRegularDomain, setNewRegularDomain] = useState('');
+  const [newFollowDnsDomain, setNewFollowDnsDomain] = useState('');
+  const [addingDomain, setAddingDomain] = useState<string | null>(null);
+  const [domainsWithTypes, setDomainsWithTypes] = useState<Domain[]>([]);
 
   useEffect(() => {
     const loadGroupDetails = async () => {
@@ -78,8 +86,39 @@ const GroupDetails: React.FC = () => {
   useEffect(() => {
     if (group) {
       loadRouterRoutes();
+      setGroupNameValue(group.name);
+      loadGroupDomains();
     }
   }, [group]);
+
+  const loadGroupDomains = async () => {
+    if (!group || !group.id) return;
+
+    try {
+      const domainsData = await apiService.getGroupDomains(group.id);
+      setDomainsWithTypes(domainsData.domains);
+    } catch (err) {
+      console.error('Failed to load group domains:', err);
+      // Fallback to parsing from group.domains if API fails
+      if (group && group.domains) {
+        let regular: string[] = [];
+        let followDns: string[] = [];
+        
+        if (Array.isArray(group.domains)) {
+          regular = group.domains;
+        } else if (typeof group.domains === 'object') {
+          regular = group.domains.domains || [];
+          followDns = group.domains.follow_dns || [];
+        }
+        
+        const typedDomains: Domain[] = [
+          ...regular.map((d: string, idx: number) => ({ id: idx, domain: d, type: 'regular' as const })),
+          ...followDns.map((d: string, idx: number) => ({ id: idx + regular.length, domain: d, type: 'follow_dns' as const }))
+        ];
+        setDomainsWithTypes(typedDomains);
+      }
+    }
+  };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Never';
@@ -228,7 +267,172 @@ const GroupDetails: React.FC = () => {
     setShowDeleteModal(false);
   };
 
+  const handleRenameGroup = async () => {
+    if (!group || !groupNameValue.trim() || groupNameValue === group.name) {
+      setEditingGroupName(false);
+      setGroupNameValue(group?.name || '');
+      return;
+    }
+
+    try {
+      setRenaming(true);
+      setError(null);
+
+      await apiService.updateDomainGroupById(group.id, { name: groupNameValue.trim() });
+      showNotification('success', `Group renamed to "${groupNameValue.trim()}" successfully!`);
+      
+      // Reload group data and navigate to new URL
+      const updatedGroups = await apiService.getDomainGroups();
+      const updatedGroup = updatedGroups.find(g => g.id === group.id);
+      
+      if (updatedGroup) {
+        setGroup(updatedGroup);
+        navigate(`/groups/${updatedGroup.name}`, { replace: true });
+      }
+      
+      setEditingGroupName(false);
+    } catch (err: any) {
+      console.error('Error renaming group:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      setError(`Failed to rename group: ${errorMessage}`);
+      showNotification('error', `Failed to rename group: ${errorMessage}`);
+      setGroupNameValue(group.name);
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const handleAddDomain = async (domain: string, type: 'regular' | 'follow_dns' = 'regular') => {
+    if (!group || !domain.trim()) return;
+
+    const domainToAdd = domain.trim();
+    try {
+      setAddingDomain(domainToAdd);
+      setError(null);
+
+      await apiService.addDomainToGroup(group.id, domainToAdd, type);
+      showNotification('success', `Domain "${domainToAdd}" added successfully!`);
+
+      // Clear input
+      if (type === 'regular') {
+        setNewRegularDomain('');
+      } else {
+        setNewFollowDnsDomain('');
+      }
+
+      // Small delay to ensure database transaction is committed
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Reload domains with type information
+      await loadGroupDomains();
+
+      // Also reload group data and routes for statistics
+      const [updatedGroups, updatedRoutes] = await Promise.all([
+        apiService.getDomainGroups(),
+        apiService.getRoutes({ group_id: group.name })
+      ]);
+      
+      const updatedGroup = updatedGroups.find(g => g.id === group.id);
+      
+      if (updatedGroup) {
+        setGroup(updatedGroup);
+        setRoutes(updatedRoutes);
+      } else {
+        // Fallback: reload using the same logic as initial load
+        const individualGroupData = await apiService.getDomainGroup(group.name);
+        const convertedGroup: DomainGroup = {
+          id: group.id,
+          name: group.name,
+          mask: individualGroupData.settings?.mask || null,
+          interfaces: individualGroupData.settings?.interfaces || null,
+          domains: individualGroupData,
+          statistics: {
+            total_domains: (individualGroupData.domains?.length || 0) + (individualGroupData.follow_dns?.length || 0),
+            regular_domains: individualGroupData.domains?.length || 0,
+            follow_dns_domains: individualGroupData.follow_dns?.length || 0,
+            total_routes: updatedRoutes.length,
+            synced_routes: updatedRoutes.filter(r => r.synced_to_router).length,
+            pending_routes: updatedRoutes.filter(r => !r.synced_to_router).length,
+          },
+        };
+        setGroup(convertedGroup);
+        setRoutes(updatedRoutes);
+      }
+    } catch (err: any) {
+      console.error('Error adding domain:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      setError(`Failed to add domain: ${errorMessage}`);
+      showNotification('error', `Failed to add domain: ${errorMessage}`);
+    } finally {
+      setAddingDomain(null);
+    }
+  };
+
+  const handleDeleteDomain = async (domain: string, type: 'regular' | 'follow_dns' = 'regular') => {
+    if (!group) return;
+
+    try {
+      setDeletingDomain(domain);
+      setError(null);
+
+      await apiService.deleteDomainFromGroup(group.id, domain, type);
+      showNotification('success', `Domain "${domain}" deleted successfully!`);
+
+      // Reload domains with type information
+      await loadGroupDomains();
+
+      // Also reload group data and routes for statistics
+      const [updatedGroups, updatedRoutes] = await Promise.all([
+        apiService.getDomainGroups(),
+        apiService.getRoutes({ group_id: group.name })
+      ]);
+      
+      const updatedGroup = updatedGroups.find(g => g.id === group.id);
+      
+      if (updatedGroup) {
+        setGroup(updatedGroup);
+        setRoutes(updatedRoutes);
+      } else {
+        // Fallback: reload using the same logic as initial load
+        const individualGroupData = await apiService.getDomainGroup(group.name);
+        const convertedGroup: DomainGroup = {
+          id: group.id,
+          name: group.name,
+          mask: individualGroupData.settings?.mask || null,
+          interfaces: individualGroupData.settings?.interfaces || null,
+          domains: individualGroupData,
+          statistics: {
+            total_domains: (individualGroupData.domains?.length || 0) + (individualGroupData.follow_dns?.length || 0),
+            regular_domains: individualGroupData.domains?.length || 0,
+            follow_dns_domains: individualGroupData.follow_dns?.length || 0,
+            total_routes: updatedRoutes.length,
+            synced_routes: updatedRoutes.filter(r => r.synced_to_router).length,
+            pending_routes: updatedRoutes.filter(r => !r.synced_to_router).length,
+          },
+        };
+        setGroup(convertedGroup);
+        setRoutes(updatedRoutes);
+      }
+    } catch (err: any) {
+      console.error('Error deleting domain:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      setError(`Failed to delete domain: ${errorMessage}`);
+      showNotification('error', `Failed to delete domain: ${errorMessage}`);
+    } finally {
+      setDeletingDomain(null);
+    }
+  };
+
   const getDomainsList = () => {
+    // Use domains with type information if available (preferred method)
+    if (domainsWithTypes.length > 0) {
+      return {
+        regular: domainsWithTypes.filter(d => d.type === 'regular').map(d => d.domain),
+        followDns: domainsWithTypes.filter(d => d.type === 'follow_dns').map(d => d.domain)
+      };
+    }
+
+    // Fallback to parsing from group.domains structure
     if (!group || !group.domains) return { regular: [], followDns: [] };
 
     if (Array.isArray(group.domains)) {
@@ -290,27 +494,57 @@ const GroupDetails: React.FC = () => {
       <Row>
         <Col>
           <div className="d-flex justify-content-between align-items-center mb-4">
-            <h1>
+            <div className="d-flex align-items-center">
               <i className="fas fa-layer-group me-2"></i>
-              {group.name}
-            </h1>
+              {editingGroupName ? (
+                <div className="d-flex align-items-center">
+                  <Form.Control
+                    type="text"
+                    value={groupNameValue}
+                    onChange={(e) => setGroupNameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleRenameGroup();
+                      } else if (e.key === 'Escape') {
+                        setEditingGroupName(false);
+                        setGroupNameValue(group.name);
+                      }
+                    }}
+                    onBlur={handleRenameGroup}
+                    autoFocus
+                    disabled={renaming}
+                    style={{ width: '300px' }}
+                  />
+                  {renaming && (
+                    <div className="loading-spinner ms-2"></div>
+                  )}
+                </div>
+              ) : (
+                <h1 className="mb-0">
+                  {group.name}
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="ms-2 p-0"
+                    onClick={() => setEditingGroupName(true)}
+                    title="Rename group"
+                    style={{ fontSize: '0.8em', verticalAlign: 'middle' }}
+                  >
+                    <i className="fas fa-edit"></i>
+                  </Button>
+                </h1>
+              )}
+            </div>
             <div>
               <Link to="/" className="btn btn-outline-secondary me-2">
                 <i className="fas fa-arrow-left me-1"></i>
                 Back to Groups
               </Link>
-              <Link
-                to={`/groups/${group.name}/edit`}
-                className="btn btn-outline-primary me-2"
-              >
-                <i className="fas fa-edit me-1"></i>
-                Edit Group
-              </Link>
               <Button
                 variant="success"
                 className="me-2"
                 onClick={handleGenerateIPs}
-                disabled={generating || syncing || deleting}
+                disabled={generating || syncing || deleting || renaming || editingGroupName}
               >
                 {generating ? (
                   <>
@@ -328,7 +562,7 @@ const GroupDetails: React.FC = () => {
                 variant="warning"
                 className="me-2"
                 onClick={handleSyncToRouter}
-                disabled={generating || syncing || deleting}
+                disabled={generating || syncing || deleting || renaming || editingGroupName}
               >
                 {syncing ? (
                   <>
@@ -357,7 +591,7 @@ const GroupDetails: React.FC = () => {
               <Button
                 variant="danger"
                 onClick={handleDeleteClick}
-                disabled={generating || syncing || deleting}
+                disabled={generating || syncing || deleting || renaming || editingGroupName}
               >
                 {deleting ? (
                   <>
@@ -502,60 +736,176 @@ const GroupDetails: React.FC = () => {
       </Row>
 
       {/* Regular Domains */}
-      {domains.regular.length > 0 && (
-        <Row className="mb-4">
-          <Col>
-            <Card>
-              <Card.Header>
-                <h6 className="mb-0">
-                  <i className="fas fa-globe me-2"></i>
-                  Regular Domains ({domains.regular.length})
-                </h6>
-              </Card.Header>
-              <Card.Body>
+      <Row className="mb-4">
+        <Col>
+          <Card>
+            <Card.Header>
+              <h6 className="mb-0">
+                <i className="fas fa-globe me-2"></i>
+                Regular Domains ({domains.regular.length})
+              </h6>
+            </Card.Header>
+            <Card.Body>
+              {/* Add new domain input */}
+              <div className="mb-3">
+                <div className="d-flex">
+                  <Form.Control
+                    type="text"
+                    placeholder="Enter domain name (e.g., example.com)"
+                    value={newRegularDomain}
+                    onChange={(e) => setNewRegularDomain(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newRegularDomain.trim()) {
+                        handleAddDomain(newRegularDomain, 'regular');
+                      }
+                    }}
+                    disabled={addingDomain !== null}
+                    className="me-2"
+                  />
+                  <Button
+                    variant="primary"
+                    onClick={() => handleAddDomain(newRegularDomain, 'regular')}
+                    disabled={!newRegularDomain.trim() || addingDomain !== null}
+                  >
+                    {addingDomain === newRegularDomain.trim() ? (
+                      <>
+                        <div className="loading-spinner me-2"></div>
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-plus me-1"></i>
+                        Add
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Domain list */}
+              {domains.regular.length > 0 ? (
                 <Row>
                   {domains.regular.map((domain: string, index: number) => (
                     <Col key={index} md={6} lg={4} className="mb-2">
-                      <div className="domain-item">
-                        <i className="fas fa-globe fa-xs me-2 text-primary"></i>
-                        {domain}
+                      <div className="domain-item d-flex justify-content-between align-items-center">
+                        <span>
+                          <i className="fas fa-globe fa-xs me-2 text-primary"></i>
+                          {domain}
+                        </span>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="text-danger p-0 ms-2"
+                          onClick={() => handleDeleteDomain(domain, 'regular')}
+                          disabled={deletingDomain === domain}
+                          title="Delete domain"
+                        >
+                          {deletingDomain === domain ? (
+                            <div className="loading-spinner" style={{ width: '12px', height: '12px' }}></div>
+                          ) : (
+                            <i className="fas fa-times"></i>
+                          )}
+                        </Button>
                       </div>
                     </Col>
                   ))}
                 </Row>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      )}
+              ) : (
+                <div className="text-muted text-center py-3">
+                  <i className="fas fa-info-circle me-2"></i>
+                  No regular domains yet. Add one above.
+                </div>
+              )}
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
 
       {/* DNS Follow Domains */}
-      {domains.followDns.length > 0 && (
-        <Row className="mb-4">
-          <Col>
-            <Card>
-              <Card.Header>
-                <h6 className="mb-0">
-                  <i className="fas fa-eye me-2"></i>
-                  DNS Monitored Domains ({domains.followDns.length})
-                </h6>
-              </Card.Header>
-              <Card.Body>
+      <Row className="mb-4">
+        <Col>
+          <Card>
+            <Card.Header>
+              <h6 className="mb-0">
+                <i className="fas fa-eye me-2"></i>
+                DNS Monitored Domains ({domains.followDns.length})
+              </h6>
+            </Card.Header>
+            <Card.Body>
+              {/* Add new domain input */}
+              <div className="mb-3">
+                <div className="d-flex">
+                  <Form.Control
+                    type="text"
+                    placeholder="Enter domain name (e.g., example.com)"
+                    value={newFollowDnsDomain}
+                    onChange={(e) => setNewFollowDnsDomain(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newFollowDnsDomain.trim()) {
+                        handleAddDomain(newFollowDnsDomain, 'follow_dns');
+                      }
+                    }}
+                    disabled={addingDomain !== null}
+                    className="me-2"
+                  />
+                  <Button
+                    variant="success"
+                    onClick={() => handleAddDomain(newFollowDnsDomain, 'follow_dns')}
+                    disabled={!newFollowDnsDomain.trim() || addingDomain !== null}
+                  >
+                    {addingDomain === newFollowDnsDomain.trim() ? (
+                      <>
+                        <div className="loading-spinner me-2"></div>
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-plus me-1"></i>
+                        Add
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Domain list */}
+              {domains.followDns.length > 0 ? (
                 <Row>
                   {domains.followDns.map((domain: string, index: number) => (
                     <Col key={index} md={6} lg={4} className="mb-2">
-                      <div className="domain-item">
-                        <i className="fas fa-eye fa-xs me-2 text-success"></i>
-                        {domain}
+                      <div className="domain-item d-flex justify-content-between align-items-center">
+                        <span>
+                          <i className="fas fa-eye fa-xs me-2 text-success"></i>
+                          {domain}
+                        </span>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="text-danger p-0 ms-2"
+                          onClick={() => handleDeleteDomain(domain, 'follow_dns')}
+                          disabled={deletingDomain === domain}
+                          title="Delete domain"
+                        >
+                          {deletingDomain === domain ? (
+                            <div className="loading-spinner" style={{ width: '12px', height: '12px' }}></div>
+                          ) : (
+                            <i className="fas fa-times"></i>
+                          )}
+                        </Button>
                       </div>
                     </Col>
                   ))}
                 </Row>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      )}
+              ) : (
+                <div className="text-muted text-center py-3">
+                  <i className="fas fa-info-circle me-2"></i>
+                  No DNS monitored domains yet. Add one above.
+                </div>
+              )}
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
 
       {/* IP Routes in Database */}
       <Row className="mb-4">

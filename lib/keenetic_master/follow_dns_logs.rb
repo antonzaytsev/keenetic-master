@@ -32,12 +32,10 @@ class KeeneticMaster
       while true
         begin
           logs_data = fetch_dns_logs
-          if logs_data
-            process_api_logs(logs_data)
-            update_last_fetch_time
-          end
+          process_api_logs(logs_data)
+          update_last_fetch_time
         rescue => e
-          logger.error "Ошибка при получении DNS логов: #{e.message}"
+          logger.error "Ошибка при получении DNS логов: #{e.message}.\n#{e.backtrace}"
         end
 
         sleep WAIT
@@ -51,7 +49,7 @@ class KeeneticMaster
 
     def update_last_fetch_time
       @last_fetch_time = Time.now
-      logger.debug "Updated last fetch time to #{@last_fetch_time.utc.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+      logger.info "Updated last fetch time to #{@last_fetch_time.utc.strftime('%Y-%m-%dT%H:%M:%SZ')}"
     end
 
     def fetch_dns_logs
@@ -108,7 +106,9 @@ class KeeneticMaster
         nil
       end
 
-      return if group.nil? || group['ip_addresses'].blank?
+      ip_addresses = group['answers']&.map(&:last) || []
+
+      return if group.nil? || ip_addresses.blank?
 
       requested_domain = group['request']['query'][0..-2]
       domain_matched = false
@@ -125,7 +125,7 @@ class KeeneticMaster
               domain: requested_domain,
               group_name: website,
               routes_count: routes_count,
-              ip_addresses: group['ip_addresses'],
+              ip_addresses: ip_addresses,
               comment: "[auto:#{website}] #{requested_domain}"
             )
 
@@ -142,7 +142,7 @@ class KeeneticMaster
           domain: requested_domain,
           group_name: 'none',
           routes_count: 0,
-          ip_addresses: group['ip_addresses'],
+          ip_addresses: ip_addresses,
           comment: 'No matching follow_dns domain found'
         )
       end
@@ -151,7 +151,8 @@ class KeeneticMaster
     def add_routes_for_domain(group, website, requested_domain, data, routes_to_update)
       routes_count = 0
 
-      group['ip_addresses'].each do |ip_address|
+      group['answers'].each do |answer|
+        ip_address = answer.last
         data[:interfaces].each do |interface|
           route = {
             network: ip_address.sub(/\.\d+$/, '.0'),
@@ -200,6 +201,9 @@ class KeeneticMaster
       end
     end
 
+    def logger(_ = nil)
+      @logger ||= create_logger(STDOUT)
+    end
 
     def follow_dns
       if @follow_dns && @follow_dns[:cached_at] && @follow_dns[:cached_at] > (Time.now - DOMAINS_FILE_CACHE_TTL)
@@ -220,6 +224,9 @@ class KeeneticMaster
           interfaces: interfaces
         }
       end
+
+      logger.debug("Updated list of monitored domains")
+      logger.debug(websites)
 
       @follow_dns = {
         cached_at: Time.now,
