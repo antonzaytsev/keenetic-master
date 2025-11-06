@@ -19,6 +19,13 @@ require_relative 'correct_interface'
 
 class KeeneticMaster
   class WebServer < Sinatra::Base
+    configure :development do
+      require 'sinatra/reloader'
+      register Sinatra::Reloader
+      also_reload 'lib/**/*.rb'
+      also_reload 'config/**/*.rb'
+    end
+
     configure do
       set :port, '3000'
       set :bind, '0.0.0.0'
