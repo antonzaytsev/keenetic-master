@@ -440,22 +440,19 @@ class KeeneticMaster
         routes_before = Route.where(group_id: group.id).count
 
         # Use DatabaseRouterSync to generate and store routes in database
+        # This will add new routes and remove obsolete ones
         db_sync = DatabaseRouterSync.new
         generated_count = db_sync.send(:generate_routes_for_group, group)
 
         # Count routes after generation
         routes_after = Route.where(group_id: group.id).count
-        routes_added = routes_after - routes_before
+        routes_added = [routes_after - routes_before, 0].max
+        routes_removed = [routes_before - routes_after, 0].max
 
-        # Now sync the new routes to router if there are any pending
-        sync_result = db_sync.sync_to_router!
-        synced_count = 0
-
-        if sync_result.success? && sync_result.value!.key?(:synced)
-          synced_count = sync_result.value![:synced]
-        end
-
-        message = "Successfully generated and stored #{generated_count} routes for group '#{group_name}'. Synced #{synced_count} routes to router."
+        message_parts = ["Successfully generated routes for group '#{group_name}'"]
+        message_parts << "added #{routes_added}" if routes_added > 0
+        message_parts << "removed #{routes_removed}" if routes_removed > 0
+        message = message_parts.join(", ") + "."
 
         # Log the operation
         SyncLog.log_success('generate_ips', 'domain_group', group.id)
@@ -465,9 +462,8 @@ class KeeneticMaster
           message: message,
           statistics: {
             added: routes_added,
-            deleted: 0, # DatabaseRouterSync doesn't delete during generation
-            total: routes_after,
-            synced_to_router: synced_count
+            removed: routes_removed,
+            total: routes_after
           }
         })
       rescue => e

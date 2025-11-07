@@ -235,15 +235,19 @@ const GroupDetails: React.FC = () => {
       const result = await apiService.generateIPs(groupName);
 
       if (result.success) {
-        const message = `${result.message} (Added: ${result.statistics.added}, Deleted: ${result.statistics.deleted}, Total: ${result.statistics.total})`;
-        showNotification('success', message);
+        const stats = result.statistics;
+        const messageParts = [result.message];
+        if (stats.added > 0 || stats.removed > 0) {
+          const statsParts = [];
+          if (stats.added > 0) statsParts.push(`Added: ${stats.added}`);
+          if (stats.removed > 0) statsParts.push(`Removed: ${stats.removed}`);
+          messageParts.push(`(${statsParts.join(', ')}, Total: ${stats.total})`);
+        }
+        showNotification('success', messageParts.join(' '));
 
         // Reload database routes immediately
         const updatedRoutes = await apiService.getRoutes({ group_id: groupName });
         setRoutes(updatedRoutes);
-
-        // Refresh router routes
-        await loadRouterRoutes();
 
         // Update group statistics if we have the group data
         if (group) {
