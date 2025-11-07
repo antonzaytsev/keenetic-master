@@ -32,6 +32,8 @@ const GroupDetails: React.FC = () => {
   const [maskValue, setMaskValue] = useState('');
   const [interfacesValue, setInterfacesValue] = useState('');
   const [updatingConfig, setUpdatingConfig] = useState(false);
+  const [routerInterfaces, setRouterInterfaces] = useState<Array<{ id: string; description: string; name: string }>>([]);
+  const [loadingInterfaces, setLoadingInterfaces] = useState(false);
 
   useEffect(() => {
     const loadGroupDetails = async () => {
@@ -96,6 +98,34 @@ const GroupDetails: React.FC = () => {
       loadGroupDomains();
     }
   }, [group]);
+
+  const loadRouterInterfaces = async () => {
+    try {
+      setLoadingInterfaces(true);
+      const result = await apiService.getRouterInterfaces();
+      
+      if (result.success && result.interfaces) {
+        setRouterInterfaces(result.interfaces);
+      }
+    } catch (err: any) {
+      console.error('Failed to load router interfaces:', err);
+      // Don't show error notification, just log it
+    } finally {
+      setLoadingInterfaces(false);
+    }
+  };
+
+  useEffect(() => {
+    // Load interfaces when component mounts or when group changes
+    loadRouterInterfaces();
+  }, []);
+
+  useEffect(() => {
+    // Also reload interfaces when entering edit mode to ensure fresh data
+    if (editingConfig) {
+      loadRouterInterfaces();
+    }
+  }, [editingConfig]);
 
   const loadGroupDomains = async () => {
     if (!group || !group.id) return;
@@ -818,17 +848,34 @@ const GroupDetails: React.FC = () => {
                   )}
                 </div>
                 {editingConfig ? (
-                  <Form.Control
-                    type="text"
+                  <Form.Select
                     value={interfacesValue}
                     onChange={(e) => setInterfacesValue(e.target.value)}
-                    placeholder="e.g., jiffy-wg or ISP,VPN"
                     size="sm"
-                  />
+                    disabled={loadingInterfaces}
+                  >
+                    <option value="">Select interface...</option>
+                    {routerInterfaces.map((iface) => (
+                      <option key={iface.id} value={iface.id}>
+                        {iface.description || iface.name || iface.id}
+                      </option>
+                    ))}
+                    {interfacesValue && !routerInterfaces.some(iface => iface.id === interfacesValue) && (
+                      <option value={interfacesValue}>{interfacesValue} (custom)</option>
+                    )}
+                  </Form.Select>
                 ) : (
-                  group.interfaces ? (
-                    <Badge bg="info">{group.interfaces}</Badge>
-                  ) : (
+                  group.interfaces ? (() => {
+                    // Handle comma-separated interfaces
+                    const interfaceIds = group.interfaces.split(',').map(id => id.trim());
+                    const displayNames = interfaceIds.map(id => {
+                      const interfaceData = routerInterfaces.find(iface => iface.id === id);
+                      return interfaceData 
+                        ? (interfaceData.description || interfaceData.name || interfaceData.id)
+                        : id;
+                    });
+                    return <Badge bg="info">{displayNames.join(', ')}</Badge>;
+                  })() : (
                     <span className="text-muted">Not set</span>
                   )
                 )}

@@ -757,6 +757,49 @@ class KeeneticMaster
     end
 
 
+    # API endpoint to get router interfaces
+    get '/api/router-interfaces' do
+      content_type :json
+      begin
+        logger.info("Getting router interfaces")
+        result = KeeneticMaster.interface
+
+        if result.success?
+          interfaces_data = result.value!
+          
+          # Extract interface IDs and descriptions
+          # interfaces_data is a hash where keys are interface IDs
+          interfaces = interfaces_data.map do |id, data|
+            {
+              id: id.to_s,
+              description: (data.is_a?(Hash) ? (data['description'] || data[:description]) : nil) || id.to_s,
+              name: (data.is_a?(Hash) ? (data['name'] || data[:name]) : nil) || id.to_s
+            }
+          end
+
+          # Sort by description/name for better UX
+          interfaces.sort_by! { |iface| iface[:description] || iface[:id] }
+
+          json({
+            success: true,
+            interfaces: interfaces
+          })
+        else
+          error_message = result.failure[:message] || "Failed to fetch interfaces from router"
+          logger.error("Error getting router interfaces: #{error_message}")
+
+          status 500
+          json error: error_message
+        end
+      rescue => e
+        logger.error("Error getting router interfaces: #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+
+        status 500
+        json error: e.message
+      end
+    end
+
     # API endpoint for IP addresses with filtering
     get '/api/ip-addresses' do
       content_type :json

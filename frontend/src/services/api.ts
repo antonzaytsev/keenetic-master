@@ -192,6 +192,11 @@ export const apiService = {
     return response.data;
   },
 
+  getRouterInterfaces: async (): Promise<any> => {
+    const response = await api.get('/api/router-interfaces');
+    return response.data;
+  },
+
   // IP Addresses / Routes
   getRoutes: async (params?: {
     sync_status?: string;
