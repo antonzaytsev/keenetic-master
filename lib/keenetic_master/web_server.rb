@@ -270,12 +270,16 @@ class KeeneticMaster
 
         # Update mask if provided
         if request_body.key?('mask')
-          group.update(mask: request_body['mask'])
+          mask_value = request_body['mask']
+          mask_value = nil if mask_value.is_a?(String) && mask_value.strip.empty?
+          group.update(mask: mask_value)
         end
 
         # Update interfaces if provided
         if request_body.key?('interfaces')
-          group.update(interfaces: request_body['interfaces'])
+          interfaces_value = request_body['interfaces']
+          interfaces_value = nil if interfaces_value.is_a?(String) && interfaces_value.strip.empty?
+          group.update(interfaces: interfaces_value)
         end
 
         json success: true, message: "Domain group updated successfully"

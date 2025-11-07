@@ -28,6 +28,10 @@ const GroupDetails: React.FC = () => {
   const [newFollowDnsDomain, setNewFollowDnsDomain] = useState('');
   const [addingDomain, setAddingDomain] = useState<string | null>(null);
   const [domainsWithTypes, setDomainsWithTypes] = useState<Domain[]>([]);
+  const [editingConfig, setEditingConfig] = useState(false);
+  const [maskValue, setMaskValue] = useState('');
+  const [interfacesValue, setInterfacesValue] = useState('');
+  const [updatingConfig, setUpdatingConfig] = useState(false);
 
   useEffect(() => {
     const loadGroupDetails = async () => {
@@ -87,6 +91,8 @@ const GroupDetails: React.FC = () => {
     if (group) {
       loadRouterRoutes();
       setGroupNameValue(group.name);
+      setMaskValue(group.mask || '');
+      setInterfacesValue(group.interfaces || '');
       loadGroupDomains();
     }
   }, [group]);
@@ -341,6 +347,49 @@ const GroupDetails: React.FC = () => {
     } finally {
       setRenaming(false);
     }
+  };
+
+  const handleSaveConfig = async () => {
+    if (!group) return;
+
+    try {
+      setUpdatingConfig(true);
+      setError(null);
+
+      await apiService.updateDomainGroupById(group.id, {
+        mask: maskValue.trim() || '',
+        interfaces: interfacesValue.trim() || ''
+      });
+      
+      showNotification('success', 'Configuration updated successfully!');
+      
+      // Reload group data
+      const updatedGroups = await apiService.getDomainGroups();
+      const updatedGroup = updatedGroups.find(g => g.id === group.id);
+      
+      if (updatedGroup) {
+        setGroup(updatedGroup);
+        setMaskValue(updatedGroup.mask || '');
+        setInterfacesValue(updatedGroup.interfaces || '');
+      }
+      
+      setEditingConfig(false);
+    } catch (err: any) {
+      console.error('Error updating configuration:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      setError(`Failed to update configuration: ${errorMessage}`);
+      showNotification('error', `Failed to update configuration: ${errorMessage}`);
+    } finally {
+      setUpdatingConfig(false);
+    }
+  };
+
+  const handleCancelConfig = () => {
+    if (group) {
+      setMaskValue(group.mask || '');
+      setInterfacesValue(group.interfaces || '');
+    }
+    setEditingConfig(false);
   };
 
   const handleAddDomain = async (domain: string, type: 'regular' | 'follow_dns' = 'regular') => {
@@ -635,7 +684,7 @@ const GroupDetails: React.FC = () => {
                 variant="success"
                 className="me-2"
                 onClick={handleGenerateIPs}
-                disabled={generating || syncing || deleting || renaming || editingGroupName}
+                disabled={generating || syncing || deleting || renaming || editingGroupName || editingConfig || updatingConfig}
               >
                 {generating ? (
                   <>
@@ -653,7 +702,7 @@ const GroupDetails: React.FC = () => {
                 variant="warning"
                 className="me-2"
                 onClick={handleSyncToRouter}
-                disabled={generating || syncing || deleting || renaming || editingGroupName}
+                disabled={generating || syncing || deleting || renaming || editingGroupName || editingConfig || updatingConfig}
               >
                 {syncing ? (
                   <>
@@ -682,7 +731,7 @@ const GroupDetails: React.FC = () => {
               <Button
                 variant="danger"
                 onClick={handleDeleteClick}
-                disabled={generating || syncing || deleting || renaming || editingGroupName}
+                disabled={generating || syncing || deleting || renaming || editingGroupName || editingConfig || updatingConfig}
               >
                 {deleting ? (
                   <>
@@ -719,17 +768,100 @@ const GroupDetails: React.FC = () => {
               </h6>
             </Card.Header>
             <Card.Body>
-              {group.mask && (
-                <div className="mb-3">
-                  <div className="small text-muted mb-1">Network Mask</div>
-                  <code className="text-primary">{group.mask}</code>
+              <div className="mb-3">
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <div className="small text-muted">Network Mask</div>
+                  {!editingConfig && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="p-0"
+                      onClick={() => setEditingConfig(true)}
+                      title="Edit network mask"
+                      style={{ fontSize: '0.8em' }}
+                    >
+                      <i className="fas fa-edit"></i>
+                    </Button>
+                  )}
                 </div>
-              )}
+                {editingConfig ? (
+                  <Form.Control
+                    type="text"
+                    value={maskValue}
+                    onChange={(e) => setMaskValue(e.target.value)}
+                    placeholder="e.g., 32 or 255.255.255.0"
+                    size="sm"
+                  />
+                ) : (
+                  group.mask ? (
+                    <code className="text-primary">{group.mask}</code>
+                  ) : (
+                    <span className="text-muted">Not set</span>
+                  )
+                )}
+              </div>
 
-              {group.interfaces && (
-                <div className="mb-3">
-                  <div className="small text-muted mb-1">Interface</div>
-                  <Badge bg="info">{group.interfaces}</Badge>
+              <div className="mb-3">
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <div className="small text-muted">Interface</div>
+                  {!editingConfig && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="p-0"
+                      onClick={() => setEditingConfig(true)}
+                      title="Edit interface"
+                      style={{ fontSize: '0.8em' }}
+                    >
+                      <i className="fas fa-edit"></i>
+                    </Button>
+                  )}
+                </div>
+                {editingConfig ? (
+                  <Form.Control
+                    type="text"
+                    value={interfacesValue}
+                    onChange={(e) => setInterfacesValue(e.target.value)}
+                    placeholder="e.g., jiffy-wg or ISP,VPN"
+                    size="sm"
+                  />
+                ) : (
+                  group.interfaces ? (
+                    <Badge bg="info">{group.interfaces}</Badge>
+                  ) : (
+                    <span className="text-muted">Not set</span>
+                  )
+                )}
+              </div>
+
+              {editingConfig && (
+                <div className="mb-3 d-flex gap-2">
+                  <Button
+                    variant="success"
+                    size="sm"
+                    onClick={handleSaveConfig}
+                    disabled={updatingConfig}
+                  >
+                    {updatingConfig ? (
+                      <>
+                        <div className="loading-spinner me-1"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-check me-1"></i>
+                        Save
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleCancelConfig}
+                    disabled={updatingConfig}
+                  >
+                    Cancel
+                  </Button>
                 </div>
               )}
 
