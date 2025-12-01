@@ -18,8 +18,6 @@ class KeeneticMaster
 
       response = Client.post_rci(body)
 
-      binding.pry
-
       # Handle case where Client returns a Dry::Monads Failure (from handle_error)
       if response.respond_to?(:failure?) && response.failure?
         # Extract error message from the Failure

@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Row, Col, Form, Button, Alert, Table } from 'react-bootstrap';
 import { apiService, SyncStatusData, SyncLog } from '../services/api';
+import { useNotification } from '../contexts/NotificationContext';
+import ConfirmModal from './ConfirmModal';
 
 const SyncStatus: React.FC = () => {
+  const { showNotification } = useNotification();
   const [syncData, setSyncData] = useState<SyncStatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [operationFilter, setOperationFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [filteredLogs, setFilteredLogs] = useState<SyncLog[]>([]);
+  const [showDeleteAutoModal, setShowDeleteAutoModal] = useState(false);
+  const [deletingAutoRoutes, setDeletingAutoRoutes] = useState(false);
 
   const loadSyncData = useCallback(async () => {
     try {
@@ -68,6 +73,23 @@ const SyncStatus: React.FC = () => {
     return operations.sort();
   };
 
+  const handleDeleteAutoRoutes = async () => {
+    setShowDeleteAutoModal(false);
+    setDeletingAutoRoutes(true);
+    
+    try {
+      const result = await apiService.deleteAutoRoutes();
+      showNotification('success', `Successfully deleted ${result.deleted_count || 0} routes with [auto prefix`);
+      await loadSyncData();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(`Failed to delete auto routes: ${errorMessage}`);
+      showNotification('error', `Failed to delete auto routes: ${errorMessage}`);
+    } finally {
+      setDeletingAutoRoutes(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-5">
@@ -92,6 +114,16 @@ const SyncStatus: React.FC = () => {
           <div className="page-header">
             <h1>Sync Status</h1>
             <div className="page-header-actions">
+              <Button 
+                variant="danger" 
+                size="sm" 
+                onClick={() => setShowDeleteAutoModal(true)}
+                disabled={deletingAutoRoutes || loading}
+                className="me-2"
+              >
+                <i className="fas fa-trash-alt me-1"></i>
+                {deletingAutoRoutes ? 'Deleting...' : 'Delete Auto Routes'}
+              </Button>
               <Button variant="outline-secondary" size="sm" onClick={loadSyncData} disabled={loading}>
                 <i className="fas fa-sync-alt me-1"></i>
                 {loading ? 'Loading...' : 'Refresh'}
@@ -323,6 +355,17 @@ const SyncStatus: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      <ConfirmModal
+        show={showDeleteAutoModal}
+        title="Delete Auto Routes"
+        message="Are you sure you want to delete all routes from Keenetic router that contain '[auto' prefix? This will wipe out all automatically added routes."
+        confirmText="Delete All"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={handleDeleteAutoRoutes}
+        onCancel={() => setShowDeleteAutoModal(false)}
+      />
     </>
   );
 };

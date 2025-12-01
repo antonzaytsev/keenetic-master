@@ -266,6 +266,11 @@ export const apiService = {
     const response = await api.post('/api/dumps/router-routes/import', dumpData);
     return response.data;
   },
+
+  deleteAutoRoutes: async (): Promise<any> => {
+    const response = await api.delete('/api/router-routes/auto');
+    return response.data;
+  },
 };
 
 export default apiService;

@@ -525,6 +525,107 @@ class KeeneticMaster
       end
     end
 
+    # API endpoint to delete all routes with [auto prefix
+    delete '/api/router-routes/auto' do
+      content_type :json
+      begin
+        logger.info("Deleting all routes with [auto prefix from router")
+
+        # Get all routes from router
+        result = GetAllRoutes.new.call
+
+        unless result.success?
+          error_message = result.failure[:error] || "Failed to fetch routes from router"
+          logger.error("Error getting router routes: #{error_message}")
+          status 500
+          return json error: error_message
+        end
+
+        router_routes = result.value!
+
+        # Filter routes with comments starting with [auto
+        auto_routes = router_routes.select do |route|
+          comment = route[:comment] || route[:description]
+          comment && comment.to_s.start_with?('[auto')
+        end
+
+        if auto_routes.empty?
+          logger.info("No routes with [auto prefix found")
+          return json({
+            success: true,
+            message: "No routes with [auto prefix found",
+            deleted_count: 0
+          })
+        end
+
+        logger.info("Found #{auto_routes.size} routes with [auto prefix to delete")
+
+        # Prepare routes for deletion
+        routes_to_delete = auto_routes.map do |route|
+          {
+            network: route[:network] || route[:dest],
+            mask: route[:mask] || route[:genmask] || '255.255.255.255',
+            comment: route[:comment] || route[:description],
+            interface: route[:interface] || route[:iface]
+          }.compact
+        end
+
+        # Delete routes in batches of 10
+        batch_size = 10
+        total_deleted = 0
+        failed_batches = 0
+        errors = []
+
+        routes_to_delete.each_slice(batch_size).with_index do |batch, index|
+          logger.info("Deleting batch #{index + 1} (#{batch.size} routes)")
+          
+          delete_result = DeleteRoutes.call(batch)
+          
+          if delete_result.success?
+            total_deleted += batch.size
+            logger.info("Successfully deleted batch #{index + 1} (#{batch.size} routes)")
+          else
+            failed_batches += 1
+            error_message = delete_result.failure.to_s
+            errors << "Batch #{index + 1}: #{error_message}"
+            logger.error("Failed to delete batch #{index + 1}: #{error_message}")
+            # Continue with next batch even if this one failed
+          end
+          
+          # Small delay between batches to avoid overwhelming the router
+          sleep(0.1) if index < (routes_to_delete.size / batch_size.to_f).ceil - 1
+        end
+
+        if failed_batches == 0
+          logger.info("Successfully deleted all #{total_deleted} routes with [auto prefix")
+          json({
+            success: true,
+            message: "Successfully deleted #{total_deleted} routes with [auto prefix",
+            deleted_count: total_deleted
+          })
+        elsif total_deleted > 0
+          logger.warn("Partially deleted routes: #{total_deleted} succeeded, #{failed_batches} batches failed")
+          json({
+            success: true,
+            message: "Deleted #{total_deleted} routes with [auto prefix (#{failed_batches} batches failed)",
+            deleted_count: total_deleted,
+            failed_batches: failed_batches,
+            errors: errors
+          })
+        else
+          error_message = errors.join('; ')
+          logger.error("Failed to delete all routes: #{error_message}")
+          status 500
+          json error: "Failed to delete routes: #{error_message}"
+        end
+      rescue => e
+        logger.error("Error deleting routes with [auto prefix: #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+        status 500
+        json error: e.message
+      end
+    end
+
 
     # API endpoint to get router interfaces
     get '/api/router-interfaces' do
@@ -535,7 +636,7 @@ class KeeneticMaster
 
         if result.success?
           interfaces_data = result.value!
-          
+
           # Extract interface IDs and descriptions
           # interfaces_data is a hash where keys are interface IDs
           interfaces = interfaces_data.map do |id, data|
@@ -904,7 +1005,7 @@ class KeeneticMaster
           # Import domain groups
           request_body['domain_groups'].each do |group_data|
             group = DomainGroup.find(name: group_data['name'])
-            
+
             if group
               group.update(
                 mask: group_data['mask'],
@@ -944,10 +1045,10 @@ class KeeneticMaster
           if request_body['routes']
             request_body['routes'].each do |route_data|
               group_id = route_data['group_id']
-              
+
               # Try to find group by ID or name
               group = DomainGroup[group_id] if group_id
-              
+
               if group
                 existing = Route.where(
                   group_id: group.id,
@@ -1057,9 +1158,9 @@ class KeeneticMaster
           else
             failure.to_s
           end
-          
+
           error_message = "Failed to fetch routes from router" if error_message.nil? || error_message.empty?
-          
+
           logger.error("Error dumping router routes: #{error_message}")
           logger.error("Failure details: #{failure.inspect}")
 

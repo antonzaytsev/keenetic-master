@@ -84,7 +84,6 @@ class UpdateGroupCommand < BaseClass
       end
 
     rescue StandardError => e
-      binding.pry
       error_result = handle_error(e, "All groups update")
       puts "Error: #{error_result.failure[:message]}"
       exit(1)
