@@ -5,8 +5,6 @@ require_relative 'apply_route_changes'
 require_relative 'delete_routes'
 require_relative 'correct_interface'
 require 'resolv'
-require 'json'
-require 'typhoeus'
 
 class KeeneticMaster
   class UpdateRoutesDatabase < BaseClass
@@ -243,9 +241,6 @@ class KeeneticMaster
             comment: "[auto:#{group.name}] #{domain_string}"
           }
         end
-      elsif github_special_value?(domain_string)
-        # GitHub special handling
-        routes.concat(resolve_github_routes(domain_string, group, interfaces, mask))
       else
         # Domain name - DNS resolution
         routes.concat(resolve_dns_routes(domain_string, group, interfaces, mask))
@@ -260,46 +255,6 @@ class KeeneticMaster
       else
         ip_address
       end
-    end
-
-    def github_special_value?(domain_string)
-      %w[hooks web api git packages pages importer copilot].include?(domain_string)
-    end
-
-    def resolve_github_routes(section, group, interfaces, mask)
-      routes = []
-      
-      begin
-        response = Typhoeus.get(Configuration.github_meta_url)
-        return routes unless response.success?
-        
-        github_data = JSON.parse(response.body)
-        ips = github_data[section] || []
-        
-        ips.each do |ip_range|
-          if ip_range.include?('/')
-            network, cidr = ip_range.split('/')
-            route_mask = Constants::MASKS[cidr]
-          else
-            network = calculate_network_for_ip(ip_range, mask)
-            route_mask = Constants::MASKS[mask]
-          end
-          
-          interfaces.each do |interface|
-            routes << {
-              network: network,
-              mask: route_mask,
-              interface: CorrectInterface.call(interface),
-              comment: "[auto:#{group.name}] GitHub #{section}"
-            }
-          end
-        end
-        
-      rescue => e
-        @logger.error("Failed to resolve GitHub routes for #{section}: #{e.message}")
-      end
-      
-      routes
     end
 
     def resolve_dns_routes(domain, group, interfaces, mask)

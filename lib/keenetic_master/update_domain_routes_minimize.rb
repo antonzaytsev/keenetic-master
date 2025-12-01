@@ -1,7 +1,6 @@
 require 'yaml'
 require 'resolv'
 require 'json'
-require 'typhoeus'
 require_relative '../database'
 require_relative '../models'
 
@@ -185,7 +184,6 @@ class KeeneticMaster
 
     def extract_domains_list(domains, website)
       domains = domains['domains'] if domains.is_a?(Hash)
-      domains = github_ips(domains) if website == 'github'
       domains
     end
 
@@ -297,24 +295,6 @@ class KeeneticMaster
 
     def routes_equivalent?(route1, route2)
       route1.slice(:network, :mask, :interface) == route2.slice(:network, :mask, :interface)
-    end
-
-    def github_ips(sections = [])
-      sections = %w[hooks web api git packages pages importer copilot] if sections.blank?
-
-      response = Typhoeus.get(Configuration.github_meta_url)
-      return [] unless response.success?
-
-      JSON.parse(response.body)
-          .slice(*sections)
-          .values
-          .flatten
-          .reject { |ip| ip.include?(':') }  # Filter out IPv6
-          .uniq
-          .sort
-    rescue JSON::ParserError => e
-      logger.error("Failed to parse GitHub meta response: #{e.message}")
-      []
     end
 
     def valid_ip_or_mask?(domain)

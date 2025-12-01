@@ -5,7 +5,6 @@ require_relative '../models'
 class KeeneticMaster
   class UpdateDomainRoutes < BaseClass
     PATTERN = "[auto:{website}]"
-    GITHUB_META_URL = 'https://api.github.com/meta'
 
     def call(group_name, default_interface = nil)
       start = Time.now
@@ -58,7 +57,6 @@ class KeeneticMaster
       # Regular domains are no longer supported - only DNS monitored domains
       domains = group.domains_dataset.where(type: 'follow_dns').map(:domain)
 
-      domains = github_ips(domains) if website == 'github'
       return [] if domains.nil?
 
       if interface.blank?
@@ -130,15 +128,6 @@ class KeeneticMaster
       end
 
       to_add
-    end
-
-    def github_ips(sections = [])
-      sections = ['hooks', 'web', 'api', 'git', 'packages', 'pages', 'importer', 'copilot'] if sections.blank?
-      github_meta_response = Typhoeus.get(GITHUB_META_URL).body
-      JSON
-        .parse(github_meta_response)
-        .slice(*sections)
-        .values.flatten.reject { |el| el =~ /:/ }.uniq.sort
     end
 
     def correct_interface_id(interface)

@@ -36,10 +36,6 @@ class KeeneticMaster
         ENV.fetch('DELETE_ROUTES', 'true').downcase == 'true'
       end
 
-      def github_meta_url
-        ENV.fetch('GITHUB_META_URL', 'https://api.github.com/meta')
-      end
-
       def cookie_file_path
         ENV.fetch('COOKIE_FILE', 'config/cookie')
       end
