@@ -590,7 +590,7 @@ const GroupDetails: React.FC = () => {
       )}
 
       <Row className="mb-4">
-        <Col lg={4}>
+        <Col>
           <Card className="h-100">
             <Card.Header>
               <h6 className="mb-0">
@@ -599,186 +599,201 @@ const GroupDetails: React.FC = () => {
               </h6>
             </Card.Header>
             <Card.Body>
-              <div className="mb-3">
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <div className="small text-muted">Network Mask</div>
-                  {!editingConfig && (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="p-0"
-                      onClick={() => setEditingConfig(true)}
-                      title="Edit network mask"
-                      style={{ fontSize: '0.8em' }}
-                    >
-                      <i className="fas fa-edit"></i>
-                    </Button>
-                  )}
-                </div>
-                {editingConfig ? (
-                  <Form.Control
-                    type="text"
-                    value={maskValue}
-                    onChange={(e) => setMaskValue(e.target.value)}
-                    placeholder="e.g., 32 or 255.255.255.0"
-                    size="sm"
-                  />
-                ) : (
-                  group.mask ? (
-                    <code className="text-primary">{group.mask}</code>
-                  ) : (
-                    <span className="text-muted">Not set</span>
-                  )
-                )}
-              </div>
-
-              <div className="mb-3">
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <div className="small text-muted">Interface</div>
-                  {!editingConfig && (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="p-0"
-                      onClick={() => setEditingConfig(true)}
-                      title="Edit interface"
-                      style={{ fontSize: '0.8em' }}
-                    >
-                      <i className="fas fa-edit"></i>
-                    </Button>
-                  )}
-                </div>
-                {editingConfig ? (
-                  <Form.Select
-                    value={interfacesValue}
-                    onChange={(e) => setInterfacesValue(e.target.value)}
-                    size="sm"
-                    disabled={loadingInterfaces}
-                  >
-                    <option value="">Select interface...</option>
-                    {routerInterfaces.map((iface) => (
-                      <option key={iface.id} value={iface.id}>
-                        {iface.description || iface.name || iface.id}
-                      </option>
-                    ))}
-                    {interfacesValue && !routerInterfaces.some(iface => iface.id === interfacesValue) && (
-                      <option value={interfacesValue}>{interfacesValue} (custom)</option>
-                    )}
-                  </Form.Select>
-                ) : (
-                  group.interfaces ? (() => {
-                    // Handle comma-separated interfaces
-                    const interfaceIds = group.interfaces.split(',').map(id => id.trim());
-                    const displayNames = interfaceIds.map(id => {
-                      const interfaceData = routerInterfaces.find(iface => iface.id === id);
-                      return interfaceData 
-                        ? (interfaceData.description || interfaceData.name || interfaceData.id)
-                        : id;
-                    });
-                    return <Badge bg="info">{displayNames.join(', ')}</Badge>;
-                  })() : (
-                    <span className="text-muted">Not set</span>
-                  )
-                )}
-              </div>
-
-              {editingConfig && (
-                <div className="mb-3 d-flex gap-2">
-                  <Button
-                    variant="success"
-                    size="sm"
-                    onClick={handleSaveConfig}
-                    disabled={updatingConfig}
-                  >
-                    {updatingConfig ? (
-                      <>
-                        <div className="loading-spinner me-1"></div>
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-check me-1"></i>
-                        Save
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleCancelConfig}
-                    disabled={updatingConfig}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
-
-              <div className="mb-3">
-                <div className="small text-muted mb-1">Created</div>
-                <div className="text-dark">
-                  <i className="fas fa-calendar-plus me-1 text-success"></i>
-                  {formatDate(group.created_at)}
-                </div>
-              </div>
-
-              <div>
-                <div className="small text-muted mb-1">Last Updated</div>
-                <div className="text-dark">
-                  <i className="fas fa-clock me-1 text-warning"></i>
-                  {formatDate(group.updated_at)}
-                </div>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-
-        <Col lg={8}>
-          <Card className="h-100">
-            <Card.Header>
-              <h6 className="mb-0">
-                <i className="fas fa-chart-pie me-2"></i>
-                Overview Statistics
-              </h6>
-            </Card.Header>
-            <Card.Body>
-              <Row className="text-center mb-4">
-                <Col xs={6} md={3}>
-                  <div className="p-3 bg-primary bg-opacity-10 rounded mb-2">
-                    <div className="h3 mb-1 text-primary">{group.statistics.total_domains}</div>
-                    <div className="text-muted small fw-bold">Total Domains</div>
+              <Row className="g-3">
+                <Col md={6} lg={3}>
+                  <div className="p-3 border rounded h-100 d-flex flex-column" style={{ minHeight: '120px' }}>
+                    <div className="d-flex justify-content-between align-items-start mb-2">
+                      <div className="small text-muted fw-semibold text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                        Network Mask
+                      </div>
+                      {!editingConfig && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="p-0"
+                          onClick={() => setEditingConfig(true)}
+                          title="Edit network mask"
+                          style={{ fontSize: '0.75rem', lineHeight: '1' }}
+                        >
+                          <i className="fas fa-edit"></i>
+                        </Button>
+                      )}
+                    </div>
+                    <div className="mt-auto">
+                      {editingConfig ? (
+                        <Form.Control
+                          type="text"
+                          value={maskValue}
+                          onChange={(e) => setMaskValue(e.target.value)}
+                          placeholder="e.g., 32 or 255.255.255.0"
+                          size="sm"
+                        />
+                      ) : (
+                        group.mask ? (
+                          <div className="fw-semibold text-primary" style={{ fontSize: '1.1rem' }}>
+                            <code className="bg-light px-2 py-1 rounded">{group.mask}</code>
+                          </div>
+                        ) : (
+                          <div className="text-muted fst-italic" style={{ fontSize: '0.9rem' }}>Not set</div>
+                        )
+                      )}
+                    </div>
                   </div>
                 </Col>
-                <Col xs={6} md={3}>
-                  <div className="p-3 bg-info bg-opacity-10 rounded mb-2">
-                    <div className="h3 mb-1 text-info">{group.statistics.total_routes}</div>
-                    <div className="text-muted small fw-bold">IP Routes</div>
-                  </div>
-                </Col>
-                <Col xs={6} md={3}>
-                  <div className="p-3 bg-success bg-opacity-10 rounded mb-2">
-                    <div className="h3 mb-1 text-success">{group.statistics.synced_routes}</div>
-                    <div className="text-muted small fw-bold">Synced</div>
-                  </div>
-                </Col>
-                <Col xs={6} md={3}>
-                  <div className="p-3 bg-warning bg-opacity-10 rounded mb-2">
-                    <div className="h3 mb-1 text-warning">{group.statistics.pending_routes}</div>
-                    <div className="text-muted small fw-bold">Pending</div>
-                  </div>
-                </Col>
-              </Row>
 
-              <Row className="text-center">
-                <Col xs={12}>
-                  <div className="p-2 border rounded">
-                    <div className="h5 mb-1 text-success">{group.statistics.follow_dns_domains}</div>
-                    <div className="text-muted small">
-                      <i className="fas fa-eye me-1"></i>
-                      DNS Monitored Domains
+                <Col md={6} lg={3}>
+                  <div className="p-3 border rounded h-100 d-flex flex-column" style={{ minHeight: '120px' }}>
+                    <div className="d-flex justify-content-between align-items-start mb-2">
+                      <div className="small text-muted fw-semibold text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                        Interface
+                      </div>
+                      {!editingConfig && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="p-0"
+                          onClick={() => setEditingConfig(true)}
+                          title="Edit interface"
+                          style={{ fontSize: '0.75rem', lineHeight: '1' }}
+                        >
+                          <i className="fas fa-edit"></i>
+                        </Button>
+                      )}
+                    </div>
+                    <div className="mt-auto">
+                      {editingConfig ? (
+                        <Form.Select
+                          value={interfacesValue}
+                          onChange={(e) => setInterfacesValue(e.target.value)}
+                          size="sm"
+                          disabled={loadingInterfaces}
+                        >
+                          <option value="">Select interface...</option>
+                          {routerInterfaces.map((iface) => (
+                            <option key={iface.id} value={iface.id}>
+                              {iface.description || iface.name || iface.id}
+                            </option>
+                          ))}
+                          {interfacesValue && !routerInterfaces.some(iface => iface.id === interfacesValue) && (
+                            <option value={interfacesValue}>{interfacesValue} (custom)</option>
+                          )}
+                        </Form.Select>
+                      ) : (
+                        group.interfaces ? (() => {
+                          // Handle comma-separated interfaces
+                          const interfaceIds = group.interfaces.split(',').map(id => id.trim());
+                          const displayNames = interfaceIds.map(id => {
+                            const interfaceData = routerInterfaces.find(iface => iface.id === id);
+                            return interfaceData 
+                              ? (interfaceData.description || interfaceData.name || interfaceData.id)
+                              : id;
+                          });
+                          return (
+                            <div className="fw-semibold" style={{ fontSize: '1rem' }}>
+                              <Badge bg="info" className="px-2 py-1">{displayNames.join(', ')}</Badge>
+                            </div>
+                          );
+                        })() : (
+                          <div className="text-muted fst-italic" style={{ fontSize: '0.9rem' }}>Not set</div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                </Col>
+
+                <Col md={6} lg={3}>
+                  <div className="p-3 border rounded h-100 d-flex flex-column" style={{ minHeight: '120px' }}>
+                    <div className="small text-muted fw-semibold text-uppercase mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                      Created
+                    </div>
+                    <div className="mt-auto d-flex align-items-center">
+                      <i className="fas fa-calendar-plus me-2 text-success"></i>
+                      <div className="fw-semibold text-dark" style={{ fontSize: '0.95rem' }}>
+                        {formatDate(group.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                </Col>
+
+                <Col md={6} lg={3}>
+                  <div className="p-3 border rounded h-100 d-flex flex-column" style={{ minHeight: '120px' }}>
+                    <div className="small text-muted fw-semibold text-uppercase mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                      Last Updated
+                    </div>
+                    <div className="mt-auto d-flex align-items-center">
+                      <i className="fas fa-clock me-2 text-warning"></i>
+                      <div className="fw-semibold text-dark" style={{ fontSize: '0.95rem' }}>
+                        {formatDate(group.updated_at)}
+                      </div>
+                    </div>
+                  </div>
+                </Col>
+
+                <Col md={6} lg={3}>
+                  <div className="p-3 border rounded bg-primary bg-opacity-10 h-100 d-flex flex-column justify-content-center" style={{ minHeight: '120px' }}>
+                    <div className="text-center">
+                      <div className="small text-muted fw-semibold text-uppercase mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                        Total Domains
+                      </div>
+                      <div className="h2 mb-0 text-primary fw-bold">{group.statistics.total_domains}</div>
+                    </div>
+                  </div>
+                </Col>
+
+                <Col md={6} lg={3}>
+                  <div className="p-3 border rounded bg-info bg-opacity-10 h-100 d-flex flex-column justify-content-center" style={{ minHeight: '120px' }}>
+                    <div className="text-center">
+                      <div className="small text-muted fw-semibold text-uppercase mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                        IP Routes in Router
+                      </div>
+                      {routerRoutesLoading ? (
+                        <div className="d-flex justify-content-center">
+                          <div className="loading-spinner"></div>
+                        </div>
+                      ) : routerRoutesError ? (
+                        <div className="text-muted small">Error</div>
+                      ) : (
+                        <div className="h2 mb-0 text-info fw-bold">{routerRoutes.length}</div>
+                      )}
                     </div>
                   </div>
                 </Col>
               </Row>
+
+              {editingConfig && (
+                <Row className="mt-3">
+                  <Col>
+                    <div className="d-flex gap-2">
+                      <Button
+                        variant="success"
+                        size="sm"
+                        onClick={handleSaveConfig}
+                        disabled={updatingConfig}
+                      >
+                        {updatingConfig ? (
+                          <>
+                            <div className="loading-spinner me-1"></div>
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <i className="fas fa-check me-1"></i>
+                            Save
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleCancelConfig}
+                        disabled={updatingConfig}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </Col>
+                </Row>
+              )}
             </Card.Body>
           </Card>
         </Col>
