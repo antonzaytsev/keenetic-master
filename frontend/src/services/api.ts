@@ -164,15 +164,6 @@ export const apiService = {
     return response.data;
   },
 
-  // IP Addresses / Routes
-  getRoutes: async (params?: {
-    sync_status?: string;
-    group_id?: string;
-  }): Promise<Route[]> => {
-    const response = await api.get('/api/ip-addresses', { params });
-    return response.data;
-  },
-
   // DNS Logs
   getDnsLogs: async (params?: {
     page?: number;

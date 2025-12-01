@@ -134,10 +134,9 @@
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <h6><i class="fas fa-list me-2"></i>Domain Types</h6>
-                                    <a href="/ip-addresses?group_id=<%= domain_group&.id %>" class="btn btn-sm btn-outline-info">
-                                        <i class="fas fa-network-wired me-1"></i>
-                                        View Routes
-                                    </a>
+                                    <span class="badge bg-info">
+                                        <%= domain_group&.routes_dataset&.count || 0 %> routes
+                                    </span>
                                 </div>
                                 
                                 <% if stats[:regular_domains] && stats[:regular_domains] > 0 %>

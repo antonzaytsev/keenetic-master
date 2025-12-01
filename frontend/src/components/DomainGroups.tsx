@@ -339,15 +339,10 @@ const DomainGroups: React.FC = () => {
                             )}
                           </td>
                           <td>
-                            <Link
-                              to={`/ip-addresses?group_id=${group.id}`}
-                              className="text-decoration-none"
-                            >
-                              <Badge bg="info" className="me-1">
-                                {group.statistics.total_routes}
-                              </Badge>
-                              <small className="text-muted">routes</small>
-                            </Link>
+                            <Badge bg="info" className="me-1">
+                              {group.statistics.total_routes}
+                            </Badge>
+                            <small className="text-muted">routes</small>
                           </td>
                           <td>
                             {group.interfaces ? (

@@ -670,56 +670,6 @@ class KeeneticMaster
       end
     end
 
-    # API endpoint for IP addresses with filtering
-    get '/api/ip-addresses' do
-      content_type :json
-      begin
-        routes = Route.order(:network, :mask)
-
-        # Filter by sync status if provided
-        if params[:sync_status]
-          case params[:sync_status]
-          when 'synced'
-            routes = routes.where(synced_to_router: true)
-          when 'unsynced'
-            routes = routes.where(synced_to_router: false)
-          end
-        end
-
-        # Filter by group if provided (accept both group_id and group_name)
-        if params[:group_id] && !params[:group_id].empty?
-          if params[:group_id].match?(/^\d+$/)
-            # It's a numeric ID
-            routes = routes.where(group_id: params[:group_id].to_i)
-          else
-            # It's a group name, find the group first
-            group = DomainGroup.find(name: params[:group_id])
-            routes = routes.where(group_id: group.id) if group
-          end
-        end
-
-        result = routes.map do |route|
-          {
-            id: route.id,
-            network: route.network,
-            mask: route.mask,
-            interface: route.interface,
-            comment: route.comment,
-            group_name: route.domain_group&.name,
-            synced_to_router: route.synced_to_router,
-            synced_at: route.synced_at&.iso8601,
-            created_at: route.created_at&.iso8601,
-            updated_at: route.updated_at&.iso8601
-          }
-        end
-
-        json result
-      rescue => e
-        status 500
-        json error: e.message
-      end
-    end
-
     # API endpoint for DNS processing logs with pagination and filtering
     get '/api/dns-logs' do
       content_type :json
@@ -1206,7 +1156,6 @@ class KeeneticMaster
         endpoints: {
           domain_groups: '/api/domain-groups',
           domains: '/api/domains',
-          ip_addresses: '/api/ip-addresses',
           dns_logs: '/api/dns-logs',
           dns_logs_stats: '/api/dns-logs/stats',
           dumps_database: '/api/dumps/database',

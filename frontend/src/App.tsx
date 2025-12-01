@@ -8,7 +8,6 @@ import Navigation from './components/Navigation';
 import DomainGroups from './components/DomainGroups';
 import GroupDetails from './components/GroupDetails';
 import AddGroup from './components/AddGroup';
-import IPAddresses from './components/IPAddresses';
 import RouterRoutes from './components/RouterRoutes';
 import DnsLogs from './components/DnsLogs';
 import DumpImport from './components/DumpImport';
@@ -26,7 +25,6 @@ function App() {
               <Route path="/" element={<DomainGroups />} />
               <Route path="/groups/add" element={<AddGroup />} />
               <Route path="/groups/:groupName" element={<GroupDetails />} />
-              <Route path="/ip-addresses" element={<IPAddresses />} />
               <Route path="/router-routes" element={<RouterRoutes />} />
               <Route path="/dns-logs" element={<DnsLogs />} />
               <Route path="/dump-import" element={<DumpImport />} />

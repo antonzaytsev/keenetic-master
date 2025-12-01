@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Alert, Badge, Table, Button, Breadcrumb, Form } from 'react-bootstrap';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { apiService, DomainGroup, Route, Domain } from '../services/api';
+import { apiService, DomainGroup, Domain } from '../services/api';
 import { useNotification } from '../contexts/NotificationContext';
 import ConfirmModal from './ConfirmModal';
 
@@ -10,7 +10,6 @@ const GroupDetails: React.FC = () => {
   const navigate = useNavigate();
   const { showNotification } = useNotification();
   const [group, setGroup] = useState<DomainGroup | null>(null);
-  const [routes, setRoutes] = useState<Route[]>([]);
   const [routerRoutes, setRouterRoutes] = useState<any[]>([]);
   const [routerRoutesLoading, setRouterRoutesLoading] = useState(false);
   const [routerRoutesError, setRouterRoutesError] = useState<string | null>(null);
@@ -40,11 +39,7 @@ const GroupDetails: React.FC = () => {
         setLoading(true);
 
         // First try to get the group from the domain groups list (which has full data)
-        const [allGroups, routesData] = await Promise.all([
-          apiService.getDomainGroups(),
-          apiService.getRoutes({ group_id: groupName })
-        ]);
-
+        const allGroups = await apiService.getDomainGroups();
         const groupData = allGroups.find(g => g.name === groupName);
 
         if (!groupData) {
@@ -62,9 +57,9 @@ const GroupDetails: React.FC = () => {
               total_domains: individualGroupData.follow_dns?.length || 0,
               regular_domains: 0,
               follow_dns_domains: individualGroupData.follow_dns?.length || 0,
-              total_routes: routesData.length,
-              synced_routes: routesData.filter(r => r.synced_to_router).length,
-              pending_routes: routesData.filter(r => !r.synced_to_router).length,
+              total_routes: 0,
+              synced_routes: 0,
+              pending_routes: 0,
             },
           };
 
@@ -72,8 +67,6 @@ const GroupDetails: React.FC = () => {
         } else {
           setGroup(groupData);
         }
-
-        setRoutes(routesData);
         setError(null);
       } catch (err) {
         console.error('Failed to load group details:', err);
@@ -351,17 +344,12 @@ const GroupDetails: React.FC = () => {
       // Reload domains with type information
       await loadGroupDomains();
 
-      // Also reload group data and routes for statistics
-      const [updatedGroups, updatedRoutes] = await Promise.all([
-        apiService.getDomainGroups(),
-        apiService.getRoutes({ group_id: group.name })
-      ]);
-      
+      // Also reload group data for statistics
+      const updatedGroups = await apiService.getDomainGroups();
       const updatedGroup = updatedGroups.find(g => g.id === group.id);
       
       if (updatedGroup) {
         setGroup(updatedGroup);
-        setRoutes(updatedRoutes);
       } else {
         // Fallback: reload using the same logic as initial load
         const individualGroupData = await apiService.getDomainGroup(group.name);
@@ -375,13 +363,12 @@ const GroupDetails: React.FC = () => {
             total_domains: (individualGroupData.domains?.length || 0) + (individualGroupData.follow_dns?.length || 0),
             regular_domains: individualGroupData.domains?.length || 0,
             follow_dns_domains: individualGroupData.follow_dns?.length || 0,
-            total_routes: updatedRoutes.length,
-            synced_routes: updatedRoutes.filter(r => r.synced_to_router).length,
-            pending_routes: updatedRoutes.filter(r => !r.synced_to_router).length,
+            total_routes: 0,
+            synced_routes: 0,
+            pending_routes: 0,
           },
         };
         setGroup(convertedGroup);
-        setRoutes(updatedRoutes);
       }
     } catch (err: any) {
       console.error('Error adding domain:', err);
@@ -406,17 +393,12 @@ const GroupDetails: React.FC = () => {
       // Reload domains with type information
       await loadGroupDomains();
 
-      // Also reload group data and routes for statistics
-      const [updatedGroups, updatedRoutes] = await Promise.all([
-        apiService.getDomainGroups(),
-        apiService.getRoutes({ group_id: group.name })
-      ]);
-      
+      // Also reload group data for statistics
+      const updatedGroups = await apiService.getDomainGroups();
       const updatedGroup = updatedGroups.find(g => g.id === group.id);
       
       if (updatedGroup) {
         setGroup(updatedGroup);
-        setRoutes(updatedRoutes);
       } else {
         // Fallback: reload using the same logic as initial load
         const individualGroupData = await apiService.getDomainGroup(group.name);
@@ -430,13 +412,12 @@ const GroupDetails: React.FC = () => {
             total_domains: (individualGroupData.domains?.length || 0) + (individualGroupData.follow_dns?.length || 0),
             regular_domains: individualGroupData.domains?.length || 0,
             follow_dns_domains: individualGroupData.follow_dns?.length || 0,
-            total_routes: updatedRoutes.length,
-            synced_routes: updatedRoutes.filter(r => r.synced_to_router).length,
-            pending_routes: updatedRoutes.filter(r => !r.synced_to_router).length,
+            total_routes: 0,
+            synced_routes: 0,
+            pending_routes: 0,
           },
         };
         setGroup(convertedGroup);
-        setRoutes(updatedRoutes);
       }
     } catch (err: any) {
       console.error('Error deleting domain:', err);
@@ -473,55 +454,6 @@ const GroupDetails: React.FC = () => {
     return { followDns: [] };
   };
 
-  const getDomainRouteInfo = (domainName: string) => {
-    if (!routes) {
-      return {
-        dbRoutes: [],
-        routerRoutes: [],
-        isSynced: false,
-        createdDate: null
-      };
-    }
-
-    // Find database routes for this domain by parsing comment field
-    // Comment format: [auto:group_name] domain_name
-    const dbRoutesForDomain = routes.filter(route => {
-      if (!route.comment) return false;
-      const commentMatch = route.comment.match(/\[auto:[^\]]+\]\s*(.+)$/);
-      return commentMatch && commentMatch[1] === domainName;
-    });
-
-    // Find router routes that match database routes by network/mask
-    const routerRoutesForDomain = routerRoutes.filter(routerRoute => {
-      return dbRoutesForDomain.some(dbRoute => {
-        const routerNetwork = routerRoute.network || routerRoute.dest;
-        const routerMask = routerRoute.mask || routerRoute.genmask || '255.255.255.255';
-        return routerNetwork === dbRoute.network && routerMask === dbRoute.mask;
-      });
-    });
-
-    // Check if all database routes are synced
-    const isSynced = dbRoutesForDomain.length > 0 && 
-      dbRoutesForDomain.every(route => route.synced_to_router) &&
-      dbRoutesForDomain.length === routerRoutesForDomain.length;
-
-    // Get earliest created date from routes
-    const createdDate = dbRoutesForDomain.length > 0
-      ? dbRoutesForDomain.reduce((earliest, route) => {
-          const routeDate = route.created_at ? new Date(route.created_at) : null;
-          if (!earliest) return routeDate;
-          if (!routeDate) return earliest;
-          return routeDate < earliest ? routeDate : earliest;
-        }, null as Date | null)
-      : null;
-
-    return {
-      dbRoutes: dbRoutesForDomain,
-      routerRoutes: routerRoutesForDomain,
-      isSynced,
-      createdDate
-    };
-  };
 
   if (loading) {
     return (
@@ -613,13 +545,6 @@ const GroupDetails: React.FC = () => {
               <Link to="/" className="btn btn-outline-secondary me-2">
                 <i className="fas fa-arrow-left me-1"></i>
                 Back to Groups
-              </Link>
-              <Link
-                to={`/ip-addresses?group_id=${group.id}`}
-                className="btn btn-primary me-2"
-              >
-                <i className="fas fa-network-wired me-1"></i>
-                View All Routes
               </Link>
               <Button
                 variant="danger"
@@ -925,86 +850,6 @@ const GroupDetails: React.FC = () => {
                 <div className="text-muted text-center py-3">
                   <i className="fas fa-info-circle me-2"></i>
                   No DNS monitored domains yet. Add one above.
-                </div>
-              )}
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* IP Routes in Database */}
-      <Row className="mb-4">
-        <Col>
-          <Card>
-            <Card.Header>
-              <h6 className="mb-0">
-                <i className="fas fa-database me-2"></i>
-                IP Routes in Database ({routes.length})
-              </h6>
-            </Card.Header>
-            <Card.Body className="p-0">
-              {routes.length === 0 ? (
-                <div className="text-center py-4">
-                  <i className="fas fa-info-circle fa-2x text-muted mb-3"></i>
-                  <p className="text-muted">No IP routes found for this group</p>
-                </div>
-              ) : (
-                <div className="table-responsive">
-                  <Table hover className="mb-0">
-                    <thead className="table-light">
-                      <tr>
-                        <th>Network</th>
-                        <th>Mask</th>
-                        <th>Interface</th>
-                        <th>Sync Status</th>
-                        <th>Last Sync</th>
-                        <th>Comment</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {routes.map((route: Route) => (
-                        <tr key={route.id}>
-                          <td>
-                            <code className="text-primary">{route.network}</code>
-                          </td>
-                          <td>
-                            <code className="text-muted">{route.mask}</code>
-                          </td>
-                          <td>
-                            {route.interface ? (
-                              <Badge bg="info">{route.interface}</Badge>
-                            ) : (
-                              <span className="text-muted">-</span>
-                            )}
-                          </td>
-                          <td>
-                            {route.synced_to_router ? (
-                              <span className="status-badge status-synced">
-                                <i className="fas fa-check me-1"></i>Synced
-                              </span>
-                            ) : (
-                              <span className="status-badge status-unsynced">
-                                <i className="fas fa-times me-1"></i>Not Synced
-                              </span>
-                            )}
-                          </td>
-                          <td>
-                            <small className="text-muted">
-                              <i className="fas fa-clock me-1"></i>
-                              {formatDate(route.synced_at)}
-                            </small>
-                          </td>
-                          <td>
-                            {route.comment ? (
-                              <small className="text-muted">{route.comment}</small>
-                            ) : (
-                              <span className="text-muted">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
                 </div>
               )}
             </Card.Body>

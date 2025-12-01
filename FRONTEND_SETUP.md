@@ -66,7 +66,6 @@ The backend provides the following API endpoints:
 - `GET /api/domains/:name` - Get specific domain group
 - `POST /api/domains/:name` - Create/update domain group
 - `DELETE /api/domains/:name` - Delete domain group
-- `GET /api/ip-addresses` - List all routes with filtering
 - `GET /api/sync-stats` - Get sync statistics and logs
 - `GET /api/sync-logs` - Get paginated sync logs
 - `GET /health` - Health check
@@ -97,13 +96,6 @@ The React frontend includes:
 - Domain count and route statistics
 - Sync status indicators
 - Delete domain groups
-
-### IP Addresses Page (/ip-addresses)
-- View all compiled IP routes
-- Filter by sync status and domain group
-- Search by IP address
-- Real-time sync status
-- Direct links to domain groups
 
 ### Sync Status Page (/sync-status)
 - Sync statistics dashboard

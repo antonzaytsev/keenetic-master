@@ -52,12 +52,6 @@ const Navigation: React.FC = () => {
               </Nav.Link>
             </LinkContainer>
             
-            <LinkContainer to="/ip-addresses">
-              <Nav.Link className={location.pathname === '/ip-addresses' ? 'active' : ''}>
-                IP Addresses
-              </Nav.Link>
-            </LinkContainer>
-            
             <LinkContainer to="/router-routes">
               <Nav.Link className={location.pathname === '/router-routes' ? 'active' : ''}>
                 Router Routes
