@@ -37,29 +37,17 @@ class DomainGroup < Sequel::Model(:domain_groups)
       result['settings']['interfaces'] = interfaces if interfaces
     end
     
-    regular_domains = domains_dataset.where(type: 'regular').map(:domain)
     follow_dns_domains = domains_dataset.where(type: 'follow_dns').map(:domain)
     
-    # Add regular domains
-    if regular_domains.any?
+    # Only include follow_dns domains (regular domains are no longer supported)
+    if follow_dns_domains.any?
       if result.any?
         # We have settings, so use hash format
-        result['domains'] = regular_domains
+        result['follow_dns'] = follow_dns_domains
       else
-        # No settings - use simple array format if no follow_dns, otherwise use hash
-        if follow_dns_domains.any?
-          result['domains'] = regular_domains
-          result['follow_dns'] = follow_dns_domains
-          return result
-        else
-          return regular_domains
-        end
+        # No settings - use simple hash format with follow_dns
+        result['follow_dns'] = follow_dns_domains
       end
-    end
-    
-    # Always include follow_dns if it exists
-    if follow_dns_domains.any?
-      result['follow_dns'] = follow_dns_domains
     end
     
     # Return result if it has content, otherwise return empty array for backward compatibility
@@ -78,24 +66,23 @@ class DomainGroup < Sequel::Model(:domain_groups)
 
       group = create(group_params)
 
-      # Add regular domains
-      if data['domains']
-        data['domains'].each do |domain|
-          group.add_domain(domain: domain, type: 'regular')
-        end
-      end
-
-      # Add follow_dns domains
+      # Only add follow_dns domains (regular domains are no longer supported)
       if data['follow_dns']
         data['follow_dns'].each do |domain|
           group.add_domain(domain: domain, type: 'follow_dns')
         end
       end
+      
+      # Ignore regular domains - they are no longer supported
+      if data['domains']
+        # Log warning if regular domains are provided (they will be ignored)
+        warn("Ignoring regular domains in group '#{name}' - only DNS monitored domains are supported")
+      end
     else
-      # Simple array format
+      # Simple array format - treat as follow_dns
       group = create(group_params)
       data.each do |domain|
-        group.add_domain(domain: domain, type: 'regular')
+        group.add_domain(domain: domain, type: 'follow_dns')
       end
     end
 

@@ -69,10 +69,6 @@ update:
 update-all:
 	bundle exec ruby cmd/update_group.rb
 
-# Start cron job for continuous updates
-cron:
-	bundle exec ruby cmd/crontab.rb
-
 # Initial project setup
 setup: install
 	@echo "Setting up KeeneticMaster..."

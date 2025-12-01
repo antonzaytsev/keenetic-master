@@ -55,7 +55,8 @@ class KeeneticMaster
       domain_mask = group.mask || ENV.fetch('DOMAINS_MASK', '32').to_s
       interface = group.interfaces || interface.presence || ENV['KEENETIC_VPN_INTERFACE'] || ENV['KEENETIC_VPN_INTERFACES']
 
-      domains = group.domains_dataset.where(type: 'regular').map(:domain)
+      # Regular domains are no longer supported - only DNS monitored domains
+      domains = group.domains_dataset.where(type: 'follow_dns').map(:domain)
 
       domains = github_ips(domains) if website == 'github'
       return [] if domains.nil?

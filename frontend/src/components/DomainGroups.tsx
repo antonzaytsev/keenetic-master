@@ -235,7 +235,6 @@ const DomainGroups: React.FC = () => {
                     <thead className="table-light">
                       <tr>
                         <th>Group Name</th>
-                        <th>Domains</th>
                         <th>DNS Monitoring</th>
                         <th>IP Routes</th>
                         <th>Sync Status</th>
@@ -262,22 +261,19 @@ const DomainGroups: React.FC = () => {
                             )}
                           </td>
                           <td>
-                            <Badge bg="primary" className="me-1">
-                              {group.statistics.regular_domains}
-                            </Badge>
-                            <small className="text-muted">regular</small>
-                          </td>
-                          <td>
                             {group.statistics.follow_dns_domains > 0 ? (
                               <>
                                 <Badge bg="success" className="me-1">
                                   {group.statistics.follow_dns_domains}
                                 </Badge>
-                                <small className="text-muted">monitored</small>
+                                <small className="text-muted">DNS monitored</small>
                               </>
                             ) : (
                               <span className="text-muted">-</span>
                             )}
+                          </td>
+                          <td>
+                            <span className="text-muted">-</span>
                           </td>
                           <td>
                             <Link

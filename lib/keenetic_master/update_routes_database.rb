@@ -128,10 +128,11 @@ class KeeneticMaster
       interfaces = group.interfaces_list.presence || Configuration.vpn_interfaces
       mask = group.mask || Configuration.domains_mask
       
-      # Get regular domains for this group
-      regular_domains = group.domains_dataset.where(type: 'regular').all
+      # Get DNS monitored domains for this group
+      # Regular domains are no longer supported - only DNS monitored domains
+      dns_domains = group.domains_dataset.where(type: 'follow_dns').all
       
-      regular_domains.each do |domain|
+      dns_domains.each do |domain|
         routes = resolve_domain_to_routes(domain.domain, group, interfaces, mask)
         routes.each do |route_data|
           # Check if route already exists
@@ -338,8 +339,9 @@ class KeeneticMaster
     end
 
     def route_still_needed?(route, group)
-      # Check if any domain in the group would still generate this route
-      group.domains_dataset.where(type: 'regular').any? do |domain|
+      # Check if any DNS monitored domain in the group would still generate this route
+      # Regular domains are no longer supported
+      group.domains_dataset.where(type: 'follow_dns').any? do |domain|
         potential_routes = resolve_domain_to_routes(domain.domain, group, [route.interface], group.mask || Configuration.domains_mask)
         potential_routes.any? do |potential|
           potential[:network] == route.network && potential[:mask] == route.mask

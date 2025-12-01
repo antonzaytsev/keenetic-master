@@ -16,15 +16,12 @@ const GroupDetails: React.FC = () => {
   const [routerRoutesError, setRouterRoutesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingGroupName, setEditingGroupName] = useState(false);
   const [groupNameValue, setGroupNameValue] = useState('');
   const [renaming, setRenaming] = useState(false);
   const [deletingDomain, setDeletingDomain] = useState<string | null>(null);
-  const [newRegularDomain, setNewRegularDomain] = useState('');
   const [newFollowDnsDomain, setNewFollowDnsDomain] = useState('');
   const [addingDomain, setAddingDomain] = useState<string | null>(null);
   const [domainsWithTypes, setDomainsWithTypes] = useState<Domain[]>([]);
@@ -62,8 +59,8 @@ const GroupDetails: React.FC = () => {
             interfaces: individualGroupData.settings?.interfaces || null,
             domains: individualGroupData,
             statistics: {
-              total_domains: (individualGroupData.domains?.length || 0) + (individualGroupData.follow_dns?.length || 0),
-              regular_domains: individualGroupData.domains?.length || 0,
+              total_domains: individualGroupData.follow_dns?.length || 0,
+              regular_domains: 0,
               follow_dns_domains: individualGroupData.follow_dns?.length || 0,
               total_routes: routesData.length,
               synced_routes: routesData.filter(r => r.synced_to_router).length,
@@ -135,24 +132,22 @@ const GroupDetails: React.FC = () => {
       setDomainsWithTypes(domainsData.domains);
     } catch (err) {
       console.error('Failed to load group domains:', err);
-      // Fallback to parsing from group.domains if API fails
-      if (group && group.domains) {
-        let regular: string[] = [];
-        let followDns: string[] = [];
-        
-        if (Array.isArray(group.domains)) {
-          regular = group.domains;
-        } else if (typeof group.domains === 'object') {
-          regular = group.domains.domains || [];
-          followDns = group.domains.follow_dns || [];
+        // Fallback to parsing from group.domains if API fails
+        if (group && group.domains) {
+          let followDns: string[] = [];
+          
+          if (Array.isArray(group.domains)) {
+            // Legacy format - treat as follow_dns
+            followDns = group.domains;
+          } else if (typeof group.domains === 'object') {
+            followDns = group.domains.follow_dns || [];
+          }
+          
+          const typedDomains: Domain[] = [
+            ...followDns.map((d: string, idx: number) => ({ id: idx, domain: d, type: 'follow_dns' as const }))
+          ];
+          setDomainsWithTypes(typedDomains);
         }
-        
-        const typedDomains: Domain[] = [
-          ...regular.map((d: string, idx: number) => ({ id: idx, domain: d, type: 'regular' as const })),
-          ...followDns.map((d: string, idx: number) => ({ id: idx + regular.length, domain: d, type: 'follow_dns' as const }))
-        ];
-        setDomainsWithTypes(typedDomains);
-      }
     }
   };
 
@@ -222,96 +217,6 @@ const GroupDetails: React.FC = () => {
       setRouterRoutesError(err.response?.data?.error || err.message || 'Failed to load router routes');
     } finally {
       setRouterRoutesLoading(false);
-    }
-  };
-
-  const handleGenerateIPs = async () => {
-    if (!groupName) return;
-
-    try {
-      setGenerating(true);
-      setError(null);
-
-      const result = await apiService.generateIPs(groupName);
-
-      if (result.success) {
-        const stats = result.statistics;
-        const messageParts = [result.message];
-        if (stats.added > 0 || stats.removed > 0) {
-          const statsParts = [];
-          if (stats.added > 0) statsParts.push(`Added: ${stats.added}`);
-          if (stats.removed > 0) statsParts.push(`Removed: ${stats.removed}`);
-          messageParts.push(`(${statsParts.join(', ')}, Total: ${stats.total})`);
-        }
-        showNotification('success', messageParts.join(' '));
-
-        // Reload database routes immediately
-        const updatedRoutes = await apiService.getRoutes({ group_id: groupName });
-        setRoutes(updatedRoutes);
-
-        // Update group statistics if we have the group data
-        if (group) {
-          const updatedGroup = {
-            ...group,
-            statistics: {
-              ...group.statistics,
-              total_routes: result.statistics.total,
-              synced_routes: updatedRoutes.filter(r => r.synced_to_router).length,
-              pending_routes: updatedRoutes.filter(r => !r.synced_to_router).length,
-            }
-          };
-          setGroup(updatedGroup);
-        }
-      }
-    } catch (err: any) {
-      console.error('Error generating IPs:', err);
-      const errorMessage = err.response?.data?.error || err.message;
-      setError(`Failed to generate IP addresses: ${errorMessage}`);
-      showNotification('error', `Failed to generate IP addresses: ${errorMessage}`);
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const handleSyncToRouter = async () => {
-    if (!groupName) return;
-
-    try {
-      setSyncing(true);
-      setError(null);
-
-      const result = await apiService.syncToRouter(groupName);
-
-      if (result.success) {
-        showNotification('success', result.message);
-
-        // Reload the routes data to reflect sync status changes
-        const updatedRoutes = await apiService.getRoutes({ group_id: groupName });
-        setRoutes(updatedRoutes);
-
-        // Update group statistics
-        if (group) {
-          const updatedGroup = {
-            ...group,
-            statistics: {
-              ...group.statistics,
-              synced_routes: updatedRoutes.filter(r => r.synced_to_router).length,
-              pending_routes: updatedRoutes.filter(r => !r.synced_to_router).length,
-            }
-          };
-          setGroup(updatedGroup);
-        }
-
-        // Refresh router routes to show newly synced routes
-        await loadRouterRoutes();
-      }
-    } catch (err: any) {
-      console.error('Error syncing to router:', err);
-      const errorMessage = err.response?.data?.error || err.message;
-      setError(`Failed to sync to router: ${errorMessage}`);
-      showNotification('error', `Failed to sync to router: ${errorMessage}`);
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -438,11 +343,7 @@ const GroupDetails: React.FC = () => {
       showNotification('success', `Domain "${domainToAdd}" added successfully!`);
 
       // Clear input
-      if (type === 'regular') {
-        setNewRegularDomain('');
-      } else {
-        setNewFollowDnsDomain('');
-      }
+      setNewFollowDnsDomain('');
 
       // Small delay to ensure database transaction is committed
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -492,7 +393,7 @@ const GroupDetails: React.FC = () => {
     }
   };
 
-  const handleDeleteDomain = async (domain: string, type: 'regular' | 'follow_dns' = 'regular') => {
+  const handleDeleteDomain = async (domain: string, type: 'regular' | 'follow_dns' = 'follow_dns') => {
     if (!group) return;
 
     try {
@@ -551,26 +452,25 @@ const GroupDetails: React.FC = () => {
     // Use domains with type information if available (preferred method)
     if (domainsWithTypes.length > 0) {
       return {
-        regular: domainsWithTypes.filter(d => d.type === 'regular').map(d => d.domain),
         followDns: domainsWithTypes.filter(d => d.type === 'follow_dns').map(d => d.domain)
       };
     }
 
     // Fallback to parsing from group.domains structure
-    if (!group || !group.domains) return { regular: [], followDns: [] };
+    if (!group || !group.domains) return { followDns: [] };
 
     if (Array.isArray(group.domains)) {
-      return { regular: group.domains, followDns: [] };
+      // Legacy format - treat as follow_dns
+      return { followDns: group.domains };
     }
 
     if (typeof group.domains === 'object') {
       return {
-        regular: group.domains.domains || [],
         followDns: group.domains.follow_dns || []
       };
     }
 
-    return { regular: [], followDns: [] };
+    return { followDns: [] };
   };
 
   const getDomainRouteInfo = (domainName: string) => {
@@ -714,47 +614,6 @@ const GroupDetails: React.FC = () => {
                 <i className="fas fa-arrow-left me-1"></i>
                 Back to Groups
               </Link>
-              <Button
-                variant="success"
-                className="me-2"
-                onClick={handleGenerateIPs}
-                disabled={generating || syncing || deleting || renaming || editingGroupName || editingConfig || updatingConfig}
-              >
-                {generating ? (
-                  <>
-                    <div className="loading-spinner me-2"></div>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-sync-alt me-1"></i>
-                    Generate IPs
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="warning"
-                className="me-2"
-                onClick={handleSyncToRouter}
-                disabled={generating || syncing || deleting || renaming || editingGroupName || editingConfig || updatingConfig}
-              >
-                {syncing ? (
-                  <>
-                    <div className="loading-spinner me-2"></div>
-                    Syncing...
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-upload me-1"></i>
-                    Sync to Router
-                    {group.statistics.pending_routes > 0 && (
-                      <Badge bg="light" text="dark" className="ms-1">
-                        {group.statistics.pending_routes}
-                      </Badge>
-                    )}
-                  </>
-                )}
-              </Button>
               <Link
                 to={`/ip-addresses?group_id=${group.id}`}
                 className="btn btn-primary me-2"
@@ -765,7 +624,7 @@ const GroupDetails: React.FC = () => {
               <Button
                 variant="danger"
                 onClick={handleDeleteClick}
-                disabled={generating || syncing || deleting || renaming || editingGroupName || editingConfig || updatingConfig}
+                disabled={deleting || renaming || editingGroupName || editingConfig || updatingConfig}
               >
                 {deleting ? (
                   <>
@@ -972,200 +831,16 @@ const GroupDetails: React.FC = () => {
               </Row>
 
               <Row className="text-center">
-                <Col xs={6}>
+                <Col xs={12}>
                   <div className="p-2 border rounded">
-                    <div className="h5 mb-1 text-primary">{group.statistics.regular_domains}</div>
+                    <div className="h5 mb-1 text-success">{group.statistics.follow_dns_domains}</div>
                     <div className="text-muted small">
-                      <i className="fas fa-globe me-1"></i>
-                      Regular Domains
+                      <i className="fas fa-eye me-1"></i>
+                      DNS Monitored Domains
                     </div>
                   </div>
                 </Col>
-                {group.statistics.follow_dns_domains > 0 && (
-                  <Col xs={6}>
-                    <div className="p-2 border rounded">
-                      <div className="h5 mb-1 text-success">{group.statistics.follow_dns_domains}</div>
-                      <div className="text-muted small">
-                        <i className="fas fa-eye me-1"></i>
-                        DNS Monitored
-                      </div>
-                    </div>
-                  </Col>
-                )}
-                {group.statistics.follow_dns_domains === 0 && (
-                  <Col xs={6}>
-                    <div className="p-2 border rounded bg-light">
-                      <div className="h5 mb-1 text-muted">0</div>
-                      <div className="text-muted small">
-                        <i className="fas fa-eye me-1"></i>
-                        DNS Monitored
-                      </div>
-                    </div>
-                  </Col>
-                )}
               </Row>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Regular Domains */}
-      <Row className="mb-4">
-        <Col>
-          <Card>
-            <Card.Header>
-              <h6 className="mb-0">
-                <i className="fas fa-globe me-2"></i>
-                Regular Domains ({domains.regular.length})
-              </h6>
-            </Card.Header>
-            <Card.Body>
-              {/* Add new domain input */}
-              <div className="mb-3">
-                <div className="d-flex">
-                  <Form.Control
-                    type="text"
-                    placeholder="Enter domain name (e.g., example.com)"
-                    value={newRegularDomain}
-                    onChange={(e) => setNewRegularDomain(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && newRegularDomain.trim()) {
-                        handleAddDomain(newRegularDomain, 'regular');
-                      }
-                    }}
-                    disabled={addingDomain !== null}
-                    className="me-2"
-                  />
-                  <Button
-                    variant="primary"
-                    onClick={() => handleAddDomain(newRegularDomain, 'regular')}
-                    disabled={!newRegularDomain.trim() || addingDomain !== null}
-                  >
-                    {addingDomain === newRegularDomain.trim() ? (
-                      <>
-                        <div className="loading-spinner me-2"></div>
-                        Adding...
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-plus me-1"></i>
-                        Add
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Domain table */}
-              {domains.regular.length > 0 ? (
-                <div className="table-responsive">
-                  <Table hover className="mb-0">
-                    <thead className="table-light">
-                      <tr>
-                        <th>Domain Name</th>
-                        <th>When Added</th>
-                        <th>IP Addresses in Database</th>
-                        <th>IP Addresses in Router</th>
-                        <th>Sync Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {domains.regular.map((domain: string, index: number) => {
-                        const routeInfo = getDomainRouteInfo(domain);
-
-                        return (
-                          <tr key={index}>
-                            <td>
-                              <i className="fas fa-globe fa-xs me-2 text-primary"></i>
-                              <code className="text-primary">{domain}</code>
-                            </td>
-                            <td>
-                              {routeInfo.createdDate ? (
-                                <small className="text-muted">
-                                  {formatDate(routeInfo.createdDate.toISOString())}
-                                </small>
-                              ) : (
-                                <span className="text-muted">-</span>
-                              )}
-                            </td>
-                            <td>
-                              {routeInfo.dbRoutes.length > 0 ? (
-                                <div>
-                                  {sortIPs(routeInfo.dbRoutes).map((route, idx) => (
-                                    <div key={idx} className="mb-1">
-                                      <Badge bg="info">
-                                        {route.network}{maskToCIDR(route.mask)}
-                                      </Badge>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span className="text-muted">-</span>
-                              )}
-                            </td>
-                            <td>
-                              {routeInfo.routerRoutes.length > 0 ? (
-                                <div>
-                                  {sortIPs(routeInfo.routerRoutes).map((route, idx) => {
-                                    const network = route.network || route.dest;
-                                    const mask = route.mask || route.genmask || '255.255.255.255';
-                                    return (
-                                      <div key={idx} className="mb-1">
-                                        <Badge bg="success">
-                                          {network}{maskToCIDR(mask)}
-                                        </Badge>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              ) : (
-                                <span className="text-muted">-</span>
-                              )}
-                            </td>
-                            <td>
-                              {routeInfo.dbRoutes.length > 0 ? (
-                                routeInfo.isSynced ? (
-                                  <span className="status-badge status-synced">
-                                    <i className="fas fa-check me-1"></i>Synced
-                                  </span>
-                                ) : (
-                                  <span className="status-badge status-unsynced">
-                                    <i className="fas fa-times me-1"></i>Not Synced
-                                  </span>
-                                )
-                              ) : (
-                                <span className="text-muted">No routes</span>
-                              )}
-                            </td>
-                            <td>
-                              <Button
-                                variant="link"
-                                size="sm"
-                                className="text-muted p-0"
-                                onClick={() => handleDeleteDomain(domain, 'regular')}
-                                disabled={deletingDomain === domain}
-                                title="Delete domain"
-                              >
-                                {deletingDomain === domain ? (
-                                  <div className="loading-spinner" style={{ width: '12px', height: '12px' }}></div>
-                                ) : (
-                                  <i className="fas fa-trash"></i>
-                                )}
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="text-muted text-center py-3">
-                  <i className="fas fa-info-circle me-2"></i>
-                  No regular domains yet. Add one above.
-                </div>
-              )}
             </Card.Body>
           </Card>
         </Col>

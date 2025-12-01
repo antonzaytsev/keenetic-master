@@ -24,7 +24,7 @@ This will start:
 - PostgreSQL database on port 5433
 - Backend API on port 4567
 - Frontend React app on port 3000
-- Background services (crontab, dns-logs)
+- Background services (dns-logs)
 
 Access the application at http://localhost:3000
 

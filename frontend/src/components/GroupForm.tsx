@@ -8,7 +8,6 @@ interface GroupFormData {
   name: string;
   mask: string;
   interfaces: string;
-  domains: string[];
   follow_dns: string[];
 }
 
@@ -25,11 +24,9 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
     name: '',
     mask: '',
     interfaces: '',
-    domains: [],
     follow_dns: []
   });
   
-  const [domainsText, setDomainsText] = useState('');
   const [followDnsText, setFollowDnsText] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingGroup, setLoadingGroup] = useState(false);
@@ -50,17 +47,13 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
       const groupData = await apiService.getDomainGroup(groupName!);
 
       // Convert the group data to our form format
-      const domains: string[] = [];
       const followDns: string[] = [];
 
       if (Array.isArray(groupData)) {
-        // Simple array format - all are regular domains
-        domains.push(...groupData);
+        // Simple array format - treat as follow_dns (legacy)
+        followDns.push(...groupData);
       } else if (typeof groupData === 'object') {
         // Hash format
-        if (groupData.domains) {
-          domains.push(...groupData.domains);
-        }
         if (groupData.follow_dns) {
           followDns.push(...groupData.follow_dns);
         }
@@ -73,13 +66,11 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
         }));
       }
 
-      setDomainsText(domains.join('\n'));
       setFollowDnsText(followDns.join('\n'));
 
       setFormData(prev => ({
         ...prev,
         name: groupName!,
-        domains,
         follow_dns: followDns
       }));
 
@@ -96,15 +87,6 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
       ...prev,
       [field]: value
     }));
-    setError(null);
-  };
-
-  const handleDomainsChange = (value: string) => {
-    setDomainsText(value);
-    const domains = value.split('\n')
-      .map(d => d.trim())
-      .filter(d => d.length > 0);
-    setFormData(prev => ({ ...prev, domains }));
     setError(null);
   };
 
@@ -126,12 +108,12 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
       return 'Group name cannot contain spaces or forward slashes';
     }
 
-    if (formData.domains.length === 0 && formData.follow_dns.length === 0) {
-      return 'At least one domain is required (either regular or follow DNS)';
+    if (formData.follow_dns.length === 0) {
+      return 'At least one DNS monitored domain is required';
     }
 
     // Validate domain formats
-    const allDomains = [...formData.domains, ...formData.follow_dns];
+    const allDomains = [...formData.follow_dns];
     for (const domain of allDomains) {
       if (domain.includes(' ')) {
         return `Invalid domain format: "${domain}" - domains cannot contain spaces`;
@@ -164,24 +146,14 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
         if (formData.interfaces) apiData.settings.interfaces = formData.interfaces;
       }
 
-      // Add domains
-      if (formData.domains.length > 0) {
-        if (Object.keys(apiData).length === 0) {
-          // Simple array format if no settings
-          apiData = formData.domains;
-        } else {
-          apiData.domains = formData.domains;
-        }
-      }
-
       // Add follow_dns
       if (formData.follow_dns.length > 0) {
-        if (Array.isArray(apiData)) {
-          // Convert to hash format
-          const domains = apiData;
-          apiData = { domains };
+        if (Object.keys(apiData).length === 0) {
+          // Simple hash format if no settings
+          apiData = { follow_dns: formData.follow_dns };
+        } else {
+          apiData.follow_dns = formData.follow_dns;
         }
-        apiData.follow_dns = formData.follow_dns;
       }
 
       if (mode === 'add') {
@@ -299,28 +271,6 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
                   </Col>
                 </Row>
 
-                <Row className="mb-3">
-                  <Col>
-                    <Form.Label>
-                      <i className="fas fa-globe me-2"></i>
-                      Regular Domains
-                      {formData.domains.length > 0 && (
-                        <Badge bg="primary" className="ms-2">{formData.domains.length}</Badge>
-                      )}
-                    </Form.Label>
-                    <Form.Control
-                      as="textarea"
-                      rows={8}
-                      placeholder="Enter domains, one per line&#10;example.com&#10;subdomain.example.com&#10;*.wildcard.com"
-                      value={domainsText}
-                      onChange={(e) => handleDomainsChange(e.target.value)}
-                    />
-                    <Form.Text className="text-muted">
-                      Enter regular domains that will have their IP addresses resolved and added to routing
-                    </Form.Text>
-                  </Col>
-                </Row>
-
                 <Row className="mb-4">
                   <Col>
                     <Form.Label>
@@ -372,14 +322,6 @@ const GroupForm: React.FC<GroupFormProps> = ({ mode }) => {
                 <p className="small text-muted">
                   Must be unique and cannot contain spaces or forward slashes. This name will be used
                   to identify the group in routing rules and logs.
-                </p>
-              </div>
-
-              <div className="mb-3">
-                <h6><i className="fas fa-globe me-2 text-success"></i>Regular Domains</h6>
-                <p className="small text-muted">
-                  These domains will have their IP addresses resolved immediately and added to the routing table.
-                  Supports wildcards (*.example.com) and subdomains.
                 </p>
               </div>
 

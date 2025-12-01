@@ -335,12 +335,13 @@ class KeeneticMaster
       interface_string = group.interfaces || ENV['KEENETIC_VPN_INTERFACES'] || 'Wireguard0'
       interfaces = interface_string.split(',').map(&:strip)
       
-      # Get regular domains for this group
-      regular_domains = group.domains_dataset.where(type: 'regular').all
+      # Get DNS monitored domains for this group
+      # Regular domains are no longer supported - only DNS monitored domains
+      dns_domains = group.domains_dataset.where(type: 'follow_dns').all
       
       # Generate fresh routes from current domains
       fresh_routes = []
-      regular_domains.each do |domain|
+      dns_domains.each do |domain|
         routes = resolve_domain_to_routes(domain.domain, group, interfaces)
         fresh_routes.concat(routes)
       end
@@ -509,9 +510,8 @@ class KeeneticMaster
     end
 
     def route_still_needed?(route, group)
-      # This is a simplified check - in reality, you'd want to check if the
-      # route corresponds to any current domains in the group
-      !group.domains.empty?
+      # Check if any DNS monitored domains exist in the group
+      group.domains_dataset.where(type: 'follow_dns').any?
     end
   end
 end

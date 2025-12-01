@@ -18,6 +18,7 @@ def show_help
       verify          Verify migration integrity
       sync            Sync database with router
       status          Show database status
+      convert-regular-to-dns  Convert all regular domains to DNS monitoring type
       
     Options:
       -f, --file FILE  YAML file path for migration
@@ -27,6 +28,7 @@ def show_help
       ruby cmd/database_manager.rb setup
       ruby cmd/database_manager.rb migrate -f config/domains.yml
       ruby cmd/database_manager.rb sync
+      ruby cmd/database_manager.rb convert-regular-to-dns
   HELP
 end
 
@@ -101,6 +103,42 @@ def sync_database
   end
 end
 
+def convert_regular_to_dns
+  puts "Converting all regular domains to DNS monitoring type..."
+  
+  Database.setup!
+  
+  regular_domains = Domain.where(type: 'regular').all
+  converted_count = 0
+  
+  if regular_domains.empty?
+    puts "✅ No regular domains found to convert"
+    return
+  end
+  
+  puts "Found #{regular_domains.count} regular domains to convert"
+  
+  Database.connection.transaction do
+    regular_domains.each do |domain|
+      # Check if domain already exists as follow_dns in the same group
+      existing = Domain.find(group_id: domain.group_id, domain: domain.domain, type: 'follow_dns')
+      
+      if existing
+        # Domain already exists as follow_dns, just delete the regular one
+        domain.destroy
+        puts "  Removed duplicate regular domain: #{domain.domain} (already exists as DNS monitored)"
+      else
+        # Convert to follow_dns
+        domain.update(type: 'follow_dns')
+        converted_count += 1
+        puts "  Converted: #{domain.domain}"
+      end
+    end
+  end
+  
+  puts "✅ Conversion completed: #{converted_count} domains converted to DNS monitoring"
+end
+
 def show_status
   begin
     Database.setup!
@@ -121,6 +159,14 @@ def show_status
     puts "  - domains: #{Domain.count} records"
     puts "  - routes: #{Route.count} records"
     puts "  - sync_log: #{SyncLog.count} records"
+    puts
+    
+    # Domain type breakdown
+    regular_count = Domain.where(type: 'regular').count
+    follow_dns_count = Domain.where(type: 'follow_dns').count
+    puts "Domain Types:"
+    puts "  - Regular: #{regular_count}"
+    puts "  - DNS Monitored: #{follow_dns_count}"
     puts
     
     # Recent sync activity
@@ -175,6 +221,8 @@ when 'sync'
   sync_database
 when 'status'
   show_status
+when 'convert-regular-to-dns'
+  convert_regular_to_dns
 when nil
   puts "No command specified"
   show_help

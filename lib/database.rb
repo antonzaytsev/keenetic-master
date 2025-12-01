@@ -68,7 +68,7 @@ class Database
         primary_key :id
         foreign_key :group_id, :domain_groups, on_delete: :cascade
         String :domain, null: false
-        String :type, default: 'regular' # regular, follow_dns
+        String :type, default: 'follow_dns' # Only follow_dns is supported
         DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
         
         index [:group_id, :domain]

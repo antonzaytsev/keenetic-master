@@ -40,7 +40,7 @@ class MigrateYamlToDb
         group = DomainGroup.from_hash(group_name, group_data)
         migrated_groups += 1
         
-        domain_count = group.domains.count
+        domain_count = group.domains_dataset.where(type: 'follow_dns').count
         migrated_domains += domain_count
         @logger.info("Migrated group '#{group_name}' with #{domain_count} domains")
         

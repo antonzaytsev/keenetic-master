@@ -151,8 +151,8 @@ class KeeneticMaster
             interfaces: group.interfaces,
             domains: domains_hash,
             statistics: {
-              total_domains: group.domains_dataset.count,
-              regular_domains: group.domains_dataset.where(type: 'regular').count,
+              total_domains: group.domains_dataset.where(type: 'follow_dns').count,
+              regular_domains: 0,
               follow_dns_domains: group.domains_dataset.where(type: 'follow_dns').count,
               total_routes: group.routes_dataset.count,
               synced_routes: group.routes_dataset.where(synced_to_router: true).count,
@@ -305,18 +305,15 @@ class KeeneticMaster
           return json error: "Domain group not found"
         end
 
-        # Get all domains with their type information - explicitly convert to plain hash
+        # Get all DNS monitored domains - explicitly convert to plain hash
         domains_array = []
-        group.domains_dataset.order(:domain).each do |domain|
+        group.domains_dataset.where(type: 'follow_dns').order(:domain).each do |domain|
           domains_array << {
             id: domain.id.to_i,
             domain: domain.domain.to_s,
-            type: domain.type.to_s
+            type: 'follow_dns'
           }
         end
-
-        regular_count = domains_array.count { |d| d[:type] == 'regular' }
-        follow_dns_count = domains_array.count { |d| d[:type] == 'follow_dns' }
 
         response_data = {
           group_id: group_id,
@@ -324,8 +321,8 @@ class KeeneticMaster
           domains: domains_array,
           statistics: {
             total: domains_array.length,
-            regular: regular_count,
-            follow_dns: follow_dns_count
+            regular: 0,
+            follow_dns: domains_array.length
           }
         }
 
@@ -345,16 +342,12 @@ class KeeneticMaster
         group_id = params[:id].to_i
         request_body = JSON.parse(request.body.read)
         domain_name = request_body['domain']&.strip
-        domain_type = request_body['type'] || 'regular' # 'regular' or 'follow_dns'
+        # Type parameter is ignored - all domains are DNS monitored
+        domain_type = 'follow_dns'
 
         unless domain_name && !domain_name.empty?
           status 400
           return json error: "Domain name is required"
-        end
-
-        unless ['regular', 'follow_dns'].include?(domain_type)
-          status 400
-          return json error: "Invalid domain type. Must be 'regular' or 'follow_dns'"
         end
 
         group = DomainGroup[group_id]
@@ -363,22 +356,16 @@ class KeeneticMaster
           return json error: "Domain group not found"
         end
 
-        # Check if domain already exists in this group with the same type
+        # Check if domain already exists in this group
         existing = group.domains_dataset.where(domain: domain_name, type: domain_type).first
         if existing
           status 400
-          return json error: "Domain '#{domain_name}' already exists in this group as #{domain_type} domain"
-        end
-        
-        # Also check if it exists with a different type (informational)
-        existing_other_type = group.domains_dataset.where(domain: domain_name).where(Sequel.~(type: domain_type)).first
-        if existing_other_type
-          logger.warn("Domain '#{domain_name}' exists in group '#{group.name}' as #{existing_other_type.type} domain, but adding as #{domain_type}")
+          return json error: "Domain '#{domain_name}' already exists in this group"
         end
 
         # Add the domain
         Domain.create(group_id: group_id, domain: domain_name, type: domain_type)
-        logger.info("Domain '#{domain_name}' added to group '#{group.name}' (type: #{domain_type})")
+        logger.info("Domain '#{domain_name}' added to group '#{group.name}'")
 
         json success: true, message: "Domain '#{domain_name}' added successfully"
       rescue JSON::ParserError
@@ -397,7 +384,8 @@ class KeeneticMaster
       begin
         group_id = params[:id].to_i
         domain_name = URI.decode_www_form_component(params[:domain])
-        domain_type = params[:type] || 'regular' # 'regular' or 'follow_dns'
+        # Type parameter is ignored - all domains are DNS monitored
+        domain_type = 'follow_dns'
 
         group = DomainGroup[group_id]
         unless group
@@ -417,221 +405,6 @@ class KeeneticMaster
         json success: true, message: "Domain '#{domain_name}' deleted successfully"
       rescue => e
         logger.error("Error deleting domain: #{e.message}")
-        status 500
-        json error: e.message
-      end
-    end
-
-    # API endpoint to generate IP addresses for a domain group
-    post '/api/domains/:name/generate-ips' do
-      content_type :json
-      begin
-        group_name = params[:name]
-        group = DomainGroup.find(name: group_name)
-
-        unless group
-          status 404
-          return json error: "Domain group not found"
-        end
-
-        logger.info("Starting IP generation and database storage for group: #{group_name}")
-
-        # Count routes before generation
-        routes_before = Route.where(group_id: group.id).count
-
-        # Use DatabaseRouterSync to generate and store routes in database
-        # This will add new routes and remove obsolete ones
-        db_sync = DatabaseRouterSync.new
-        generated_count = db_sync.send(:generate_routes_for_group, group)
-
-        # Count routes after generation
-        routes_after = Route.where(group_id: group.id).count
-        routes_added = [routes_after - routes_before, 0].max
-        routes_removed = [routes_before - routes_after, 0].max
-
-        message_parts = ["Successfully generated routes for group '#{group_name}'"]
-        message_parts << "added #{routes_added}" if routes_added > 0
-        message_parts << "removed #{routes_removed}" if routes_removed > 0
-        message = message_parts.join(", ") + "."
-
-        # Log the operation
-        SyncLog.log_success('generate_ips', 'domain_group', group.id)
-
-        json({
-          success: true,
-          message: message,
-          statistics: {
-            added: routes_added,
-            removed: routes_removed,
-            total: routes_after
-          }
-        })
-      rescue => e
-        logger.error("Error generating IPs for group '#{params[:name]}': #{e.message}")
-        logger.error(e.backtrace.join("\n"))
-
-        # Log the error if we have a group
-        if defined?(group) && group
-          SyncLog.log_error('generate_ips', 'domain_group', e.message, group.id)
-        end
-
-        status 500
-        json error: e.message
-      end
-    end
-
-    # API endpoint to sync routes to router for a domain group
-    # Replaces all routes for the group on the router with routes from the database
-    post '/api/domains/:name/sync-router' do
-      content_type :json
-      begin
-        group_name = params[:name]
-        group = DomainGroup.find(name: group_name)
-
-        unless group
-          status 404
-          return json error: "Domain group not found"
-        end
-
-        logger.info("Starting router sync for group: #{group_name} - replacing all routes")
-
-        # Get all routes for this group from database
-        db_routes = Route.where(group_id: group.id).all
-
-        # Get all routes from router and filter by group comment or network match
-        all_router_routes_result = GetAllRoutes.new.call
-        group_router_routes = []
-        if all_router_routes_result.success?
-          all_router_routes = all_router_routes_result.value!
-          # Get database network addresses for this group as fallback
-          db_networks = db_routes.map { |r| [r.network, r.mask] }.to_set
-
-          # Filter routes that belong to this group by comment pattern [auto:group_name]
-          # OR by matching network+mask if comment is missing
-          group_router_routes = all_router_routes.select do |route|
-            comment = route[:comment] || ''
-            network = route[:network] || route[:dest]
-            mask = route[:mask] || route[:genmask] || '255.255.255.255'
-
-            # Match by comment pattern first
-            comment_match = comment.match(/\[auto:#{Regexp.escape(group_name)}\]/)
-
-            # Fallback: match by network+mask if comment is missing or doesn't match
-            network_match = network && db_networks.include?([network, mask])
-
-            comment_match || network_match
-          end
-        end
-
-        if db_routes.empty?
-          # If no routes in database, delete all routes for this group from router
-          if group_router_routes.any?
-            routes_to_delete = group_router_routes.map { |r| { network: r[:network] || r[:dest], mask: r[:mask] || '255.255.255.255', comment: r[:comment] } }
-            delete_result = DeleteRoutes.call(routes_to_delete)
-            if delete_result.success?
-              deleted_count = group_router_routes.size
-              logger.info("Deleted #{deleted_count} routes from router for group '#{group_name}'")
-              json({
-                success: true,
-                message: "No routes to sync for group '#{group_name}'. Deleted #{deleted_count} routes from router.",
-                synced_count: 0,
-                deleted_count: deleted_count
-              })
-            else
-              logger.warn("Failed to delete routes from router: #{delete_result.failure}")
-              json({
-                success: true,
-                message: "No routes to sync for group '#{group_name}'",
-                synced_count: 0,
-                deleted_count: 0
-              })
-            end
-          else
-            json({
-              success: true,
-              message: "No routes to sync for group '#{group_name}'",
-              synced_count: 0,
-              deleted_count: 0
-            })
-          end
-        else
-          router_routes = group_router_routes
-
-          deleted_count = 0
-          added_count = 0
-
-          # Step 1: Delete ALL existing routes for this group from router
-          # This ensures a clean state before adding routes
-          if group_router_routes.any?
-            routes_to_delete = group_router_routes.map do |r|
-              {
-                network: r[:network] || r[:dest],
-                mask: r[:mask] || r[:genmask] || '255.255.255.255',
-                comment: r[:comment]
-              }
-            end
-
-            delete_result = DeleteRoutes.call(routes_to_delete)
-            if delete_result.success?
-              deleted_count = routes_to_delete.size
-              logger.info("Deleted #{deleted_count} existing routes from router for group '#{group_name}'")
-            else
-              error_message = delete_result.failure.to_s
-              logger.warn("Failed to delete some routes from router: #{error_message}")
-              # Continue anyway to try adding routes - partial cleanup is ok
-            end
-          end
-
-          # Step 2: Add ALL routes from database to router with corrected interface names
-          routes_to_add = db_routes.map do |route|
-            route_data = route.to_keenetic_format
-            # Correct interface name if needed (e.g., "latvia" -> "Wireguard2")
-            if route_data[:interface]
-              route_data[:interface] = CorrectInterface.call(route_data[:interface])
-            end
-            route_data
-          end
-
-          if routes_to_add.any?
-            add_result = ApplyRouteChanges.call(routes_to_add)
-            if add_result.success?
-              added_count = routes_to_add.size
-              # Mark all routes as synced
-              db_routes.each do |route|
-                route.update(synced_to_router: true, synced_at: Time.now)
-                SyncLog.log_success("add", "route", route.id)
-              end
-              logger.info("Added #{added_count} routes to router for group '#{group_name}'")
-            else
-              error_message = add_result.failure.to_s
-              # Log errors for each route
-              db_routes.each do |route|
-                SyncLog.log_error("add", "route", error_message, route.id)
-              end
-              logger.error("Failed to add routes to router: #{error_message}")
-              raise StandardError, "Failed to sync routes: #{error_message}"
-            end
-          end
-
-          # Log the operation
-          SyncLog.log_success('sync_router', 'domain_group', group.id)
-
-          json({
-            success: true,
-            message: "Successfully synced #{added_count} routes to router for group '#{group_name}'#{deleted_count > 0 ? " (deleted #{deleted_count} obsolete routes)" : ''}",
-            synced_count: added_count,
-            deleted_count: deleted_count
-          })
-        end
-      rescue => e
-        logger.error("Error syncing routes to router for group '#{params[:name]}': #{e.message}")
-        logger.error(e.backtrace.join("\n"))
-
-        # Log the error if we have a group
-        if defined?(group) && group
-          SyncLog.log_error('sync_router', 'domain_group', e.message, group.id)
-        end
-
         status 500
         json error: e.message
       end

@@ -82,7 +82,6 @@ For Docker Compose, these are already configured.
 ### Command Line Tools
 - `cmd/database_manager.rb` - Database management
 - `cmd/update_group.rb` - Still works, now uses database
-- `cmd/crontab.rb` - Updated to use database sync
 
 ## Architecture
 

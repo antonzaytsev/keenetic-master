@@ -258,9 +258,6 @@ ruby cmd/update_group.rb
 # Update specific groups
 ruby cmd/update_group.rb github youtube
 
-# Start continuous monitoring (cron job)
-ruby cmd/crontab.rb
-
 # Show help
 ruby cmd/update_group.rb --help
 ```

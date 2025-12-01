@@ -168,16 +168,6 @@ export const apiService = {
   },
 
   // Group operations
-  generateIPs: async (groupName: string): Promise<any> => {
-    const response = await api.post(`/api/domains/${groupName}/generate-ips`);
-    return response.data;
-  },
-
-  syncToRouter: async (groupName: string): Promise<any> => {
-    const response = await api.post(`/api/domains/${groupName}/sync-router`);
-    return response.data;
-  },
-
   getRouterRoutes: async (groupName: string): Promise<any> => {
     const response = await api.get(`/api/domains/${groupName}/router-routes`);
     return response.data;
