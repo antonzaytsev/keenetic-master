@@ -64,12 +64,6 @@ const Navigation: React.FC = () => {
               </Nav.Link>
             </LinkContainer>
             
-            <LinkContainer to="/sync-status">
-              <Nav.Link className={location.pathname === '/sync-status' ? 'active' : ''}>
-                Sync Status
-              </Nav.Link>
-            </LinkContainer>
-            
             <LinkContainer to="/dns-logs">
               <Nav.Link className={location.pathname === '/dns-logs' ? 'active' : ''}>
                 DNS Logs

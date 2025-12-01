@@ -14,6 +14,10 @@ const DomainGroups: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
+  const [showDeleteAutoModal, setShowDeleteAutoModal] = useState(false);
+  const [deletingAutoRoutes, setDeletingAutoRoutes] = useState(false);
+  const [showDeleteAllRoutesModal, setShowDeleteAllRoutesModal] = useState(false);
+  const [deletingAllRoutes, setDeletingAllRoutes] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTermRef = useRef<string>('');
 
@@ -134,6 +138,40 @@ const DomainGroups: React.FC = () => {
     setSearchTerm('');
   };
 
+  const handleDeleteAutoRoutes = async () => {
+    setShowDeleteAutoModal(false);
+    setDeletingAutoRoutes(true);
+    
+    try {
+      const result = await apiService.deleteAutoRoutes();
+      showNotification('success', `Successfully deleted ${result.deleted_count || 0} routes with [auto prefix`);
+      await loadDomainGroups();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(`Failed to delete auto routes: ${errorMessage}`);
+      showNotification('error', `Failed to delete auto routes: ${errorMessage}`);
+    } finally {
+      setDeletingAutoRoutes(false);
+    }
+  };
+
+  const handleDeleteAllRoutes = async () => {
+    setShowDeleteAllRoutesModal(false);
+    setDeletingAllRoutes(true);
+    
+    try {
+      const result = await apiService.deleteAllRoutes();
+      showNotification('success', result.message || `Successfully deleted ${result.deleted_count} routes from database`);
+      await loadDomainGroups();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(`Failed to delete all routes: ${errorMessage}`);
+      showNotification('error', `Failed to delete all routes: ${errorMessage}`);
+    } finally {
+      setDeletingAllRoutes(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -151,6 +189,35 @@ const DomainGroups: React.FC = () => {
           <div className="page-header">
             <h1>Domain Groups</h1>
             <div className="page-header-actions">
+              <Button 
+                variant="danger" 
+                size="sm" 
+                onClick={() => setShowDeleteAutoModal(true)}
+                disabled={deletingAutoRoutes || deletingAllRoutes}
+                className="me-2"
+              >
+                <i className="fas fa-trash-alt me-1"></i>
+                {deletingAutoRoutes ? 'Deleting...' : 'Delete Auto Routes'}
+              </Button>
+              <Button 
+                variant="danger" 
+                size="sm" 
+                onClick={() => setShowDeleteAllRoutesModal(true)}
+                disabled={deletingAutoRoutes || deletingAllRoutes}
+                className="me-2"
+              >
+                {deletingAllRoutes ? (
+                  <>
+                    <div className="loading-spinner me-2"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-database me-1"></i>
+                    Delete All Routes from DB
+                  </>
+                )}
+              </Button>
               <Button 
                 variant="primary" 
                 onClick={() => navigate('/groups/add')}
@@ -237,7 +304,6 @@ const DomainGroups: React.FC = () => {
                         <th>Group Name</th>
                         <th>DNS Monitoring</th>
                         <th>IP Routes</th>
-                        <th>Sync Status</th>
                         <th>Interface</th>
                         <th>Last Updated</th>
                         <th>Actions</th>
@@ -273,9 +339,6 @@ const DomainGroups: React.FC = () => {
                             )}
                           </td>
                           <td>
-                            <span className="text-muted">-</span>
-                          </td>
-                          <td>
                             <Link
                               to={`/ip-addresses?group_id=${group.id}`}
                               className="text-decoration-none"
@@ -285,27 +348,6 @@ const DomainGroups: React.FC = () => {
                               </Badge>
                               <small className="text-muted">routes</small>
                             </Link>
-                          </td>
-                          <td>
-                            {group.statistics.total_routes > 0 ? (
-                              <div>
-                                <Badge bg="success" className="me-1">
-                                  {group.statistics.synced_routes}
-                                </Badge>
-                                <small className="text-success">synced</small>
-                                {group.statistics.pending_routes > 0 && (
-                                  <>
-                                    <br />
-                                    <Badge bg="warning" className="me-1">
-                                      {group.statistics.pending_routes}
-                                    </Badge>
-                                    <small className="text-warning">pending</small>
-                                  </>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted">-</span>
-                            )}
                           </td>
                           <td>
                             {group.interfaces ? (
@@ -382,6 +424,28 @@ const DomainGroups: React.FC = () => {
         variant="danger"
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
+      />
+
+      <ConfirmModal
+        show={showDeleteAutoModal}
+        title="Delete Auto Routes"
+        message="Are you sure you want to delete all routes from Keenetic router that contain '[auto' prefix? This will wipe out all automatically added routes."
+        confirmText="Delete All"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={handleDeleteAutoRoutes}
+        onCancel={() => setShowDeleteAutoModal(false)}
+      />
+
+      <ConfirmModal
+        show={showDeleteAllRoutesModal}
+        title="Delete All Routes from Database"
+        message="Are you sure you want to delete all routes (generated IP addresses) from the database? This action cannot be undone. Domain groups and domains will remain intact."
+        confirmText="Delete All"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={handleDeleteAllRoutes}
+        onCancel={() => setShowDeleteAllRoutesModal(false)}
       />
     </>
   );

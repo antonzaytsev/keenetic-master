@@ -720,90 +720,6 @@ class KeeneticMaster
       end
     end
 
-    # API endpoint for sync statistics
-    get '/api/sync-stats' do
-      begin
-        recent_logs = SyncLog.order(Sequel.desc(:created_at)).limit(100)
-        recent_failures = SyncLog.recent_failures(24)
-
-        stats = {
-          total_routes: Route.count,
-          synced_routes: Route.where(synced_to_router: true).count,
-          pending_sync: Route.pending_sync.count,
-          stale_routes: Route.stale(60).count
-        }
-
-        result = {
-          statistics: stats,
-          recent_logs: recent_logs.map do |log|
-            {
-              id: log.id,
-              operation: log.operation,
-              resource_type: log.resource_type,
-              resource_id: log.resource_id,
-              success: log.success,
-              error_message: log.error_message,
-              created_at: log.created_at&.iso8601
-            }
-          end,
-          recent_failures: recent_failures.map do |log|
-            {
-              id: log.id,
-              operation: log.operation,
-              resource_type: log.resource_type,
-              resource_id: log.resource_id,
-              error_message: log.error_message,
-              created_at: log.created_at&.iso8601
-            }
-          end
-        }
-
-        json result
-      rescue => e
-        logger.error("Error loading sync statistics: #{e.message}")
-        status 500
-        json error: e.message
-      end
-    end
-
-    # API endpoint for sync logs with pagination
-    get '/api/sync-logs' do
-      content_type :json
-      begin
-        page = (params[:page] || 1).to_i
-        per_page = (params[:per_page] || 50).to_i
-        offset = (page - 1) * per_page
-
-        logs = SyncLog.order(Sequel.desc(:created_at)).limit(per_page).offset(offset)
-        total_count = SyncLog.count
-
-        result = {
-          logs: logs.map do |log|
-            {
-              id: log.id,
-              operation: log.operation,
-              resource_type: log.resource_type,
-              resource_id: log.resource_id,
-              success: log.success,
-              error_message: log.error_message,
-              created_at: log.created_at&.iso8601
-            }
-          end,
-          pagination: {
-            page: page,
-            per_page: per_page,
-            total_count: total_count,
-            total_pages: (total_count.to_f / per_page).ceil
-          }
-        }
-
-        json result
-      rescue => e
-        status 500
-        json error: e.message
-      end
-    end
-
     # API endpoint for DNS processing logs with pagination and filtering
     get '/api/dns-logs' do
       content_type :json
@@ -996,9 +912,9 @@ class KeeneticMaster
         Database.connection.transaction do
           # Clear existing data if requested
           if params[:clear] == 'true'
-            Route.delete_all
-            Domain.delete_all
-            DomainGroup.delete_all
+            Route.dataset.delete
+            Domain.dataset.delete
+            DomainGroup.dataset.delete
             logger.info("Cleared existing database data")
           end
 
@@ -1229,6 +1145,58 @@ class KeeneticMaster
       end
     end
 
+    # API endpoint to delete all routes (generated IP addresses) from database
+    # This only deletes routes, not domain groups or domains
+    delete '/api/routes' do
+      content_type :json
+      begin
+        route_count = Route.count
+        
+        if route_count == 0
+          return json({
+            success: true,
+            message: "No routes to delete",
+            deleted_count: 0
+          })
+        end
+
+        # Verify domain groups will not be affected
+        group_count_before = DomainGroup.count
+        domain_count_before = Domain.count
+
+        logger.info("Deleting all #{route_count} routes (generated IP addresses) from database")
+        logger.info("Domain groups (#{group_count_before}) and domains (#{domain_count_before}) will remain intact")
+        
+        # Use dataset.delete for Sequel models - returns number of deleted records
+        # This only deletes routes, domain groups and domains are not affected
+        deleted_count = Route.dataset.delete
+        
+        # Verify domain groups and domains are still intact
+        group_count_after = DomainGroup.count
+        domain_count_after = Domain.count
+        
+        if group_count_before != group_count_after || domain_count_before != domain_count_after
+          logger.error("ERROR: Domain groups or domains were affected! Groups: #{group_count_before} -> #{group_count_after}, Domains: #{domain_count_before} -> #{domain_count_after}")
+          raise StandardError, "Domain groups or domains were unexpectedly affected during route deletion"
+        end
+        
+        logger.info("Successfully deleted #{deleted_count} routes from database. Domain groups and domains remain intact.")
+        
+        json({
+          success: true,
+          message: "Successfully deleted #{deleted_count} routes (generated IP addresses) from database. Domain groups and domains remain intact.",
+          deleted_count: deleted_count,
+          domain_groups_preserved: group_count_after,
+          domains_preserved: domain_count_after
+        })
+      rescue => e
+        logger.error("Error deleting all routes from database: #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+        status 500
+        json error: e.message
+      end
+    end
+
     # Root endpoint - API info
     get '/' do
       json({
@@ -1239,8 +1207,6 @@ class KeeneticMaster
           domain_groups: '/api/domain-groups',
           domains: '/api/domains',
           ip_addresses: '/api/ip-addresses',
-          sync_stats: '/api/sync-stats',
-          sync_logs: '/api/sync-logs',
           dns_logs: '/api/dns-logs',
           dns_logs_stats: '/api/dns-logs/stats',
           dumps_database: '/api/dumps/database',
