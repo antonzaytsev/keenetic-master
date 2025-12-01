@@ -12,6 +12,7 @@ import IPAddresses from './components/IPAddresses';
 import RouterRoutes from './components/RouterRoutes';
 import SyncStatus from './components/SyncStatus';
 import DnsLogs from './components/DnsLogs';
+import DumpImport from './components/DumpImport';
 
 import './App.css';
 
@@ -30,6 +31,7 @@ function App() {
               <Route path="/router-routes" element={<RouterRoutes />} />
               <Route path="/sync-status" element={<SyncStatus />} />
               <Route path="/dns-logs" element={<DnsLogs />} />
+              <Route path="/dump-import" element={<DumpImport />} />
             </Routes>
           </div>
         </div>

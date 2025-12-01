@@ -33,26 +33,48 @@ class KeeneticMaster
 
     def ensure_logged_in
       auth_response = make_request('auth')
-      return if auth_response.code == 200
 
-      return authenticate if auth_response.code == 401
+      # Handle network errors (code 0 or nil means connection failed)
+      response_code = auth_response.code rescue nil
 
-      raise RequestError, "Unexpected response from /auth: #{auth_response.code}"
+      if response_code.nil? || response_code == 0
+        return_code = auth_response.return_code rescue nil
+        error_msg = case return_code
+        when :couldnt_connect
+          "Cannot connect to router at #{build_url('auth')}. Check if router is reachable."
+        when :operation_timedout
+          "Connection to router timed out. Router may be unreachable or slow."
+        when :couldnt_resolve_host
+          "Cannot resolve router hostname. Check DNS or host configuration."
+        when nil
+          # return_code might be nil in some cases
+          "Network error connecting to router (response code: #{response_code || 'nil'}). Check if router is reachable."
+        else
+          "Network error connecting to router: #{return_code}"
+        end
+        raise RequestError, error_msg
+      end
+
+      return if response_code == 200
+
+      return authenticate if response_code == 401
+
+      raise RequestError, "Unexpected response from /auth: #{response_code}"
     end
 
     def authenticate
       auth_response = make_request('auth')
-      
+
       unless auth_response.headers["X-NDM-Realm"] && auth_response.headers["X-NDM-Challenge"]
         raise AuthenticationError, "Missing authentication headers in response"
       end
 
       credentials = Configuration.keenetic_credentials
-      
+
       md5_hash = Digest::MD5.hexdigest(
         "#{credentials[:login]}:#{auth_response.headers["X-NDM-Realm"]}:#{credentials[:password]}"
       )
-      
+
       sha_hash = Digest::SHA256.hexdigest(
         "#{auth_response.headers["X-NDM-Challenge"]}#{md5_hash}"
       )
@@ -70,13 +92,13 @@ class KeeneticMaster
     def make_request(path, body = nil)
       url = build_url(path)
       options = build_request_options(body)
-      
+
       logger.debug("Making request to #{url}")
-      
+
       response = Typhoeus::Request.new(url, options).run
-      
+
       logger.debug("Response code: #{response.code}")
-      
+
       response
     end
 

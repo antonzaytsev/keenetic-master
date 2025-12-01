@@ -243,6 +243,29 @@ export const apiService = {
     const response = await api.get('/health');
     return response.data;
   },
+
+  // Dumps
+  dumpDatabase: async (): Promise<any> => {
+    const response = await api.get('/api/dumps/database');
+    return response.data;
+  },
+
+  importDatabase: async (dumpData: any, clear: boolean = false): Promise<any> => {
+    const response = await api.post('/api/dumps/database/import', dumpData, {
+      params: { clear: clear.toString() }
+    });
+    return response.data;
+  },
+
+  dumpRouterRoutes: async (): Promise<any> => {
+    const response = await api.get('/api/dumps/router-routes');
+    return response.data;
+  },
+
+  importRouterRoutes: async (dumpData: any): Promise<any> => {
+    const response = await api.post('/api/dumps/router-routes/import', dumpData);
+    return response.data;
+  },
 };
 
 export default apiService;

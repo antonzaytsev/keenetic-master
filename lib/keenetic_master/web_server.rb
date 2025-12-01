@@ -819,6 +819,315 @@ class KeeneticMaster
       end
     end
 
+    # API endpoint to dump database
+    get '/api/dumps/database' do
+      content_type :json
+      begin
+        dump_data = {
+          version: '1.0',
+          timestamp: Time.now.iso8601,
+          domain_groups: [],
+          routes: []
+        }
+
+        DomainGroup.order(:name).all.each do |group|
+          group_data = {
+            id: group.id,
+            name: group.name,
+            mask: group.mask,
+            interfaces: group.interfaces,
+            created_at: group.created_at&.iso8601,
+            updated_at: group.updated_at&.iso8601,
+            domains: []
+          }
+
+          group.domains.each do |domain|
+            group_data[:domains] << {
+              id: domain.id,
+              domain: domain.domain,
+              type: domain.type,
+              created_at: domain.created_at&.iso8601
+            }
+          end
+
+          dump_data[:domain_groups] << group_data
+        end
+
+        Route.order(:network, :mask).all.each do |route|
+          dump_data[:routes] << {
+            id: route.id,
+            group_id: route.group_id,
+            network: route.network,
+            mask: route.mask,
+            interface: route.interface,
+            comment: route.comment,
+            synced_to_router: route.synced_to_router,
+            synced_at: route.synced_at&.iso8601,
+            created_at: route.created_at&.iso8601,
+            updated_at: route.updated_at&.iso8601
+          }
+        end
+
+        json dump_data
+      rescue => e
+        logger.error("Error dumping database: #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint to import database dump
+    post '/api/dumps/database/import' do
+      content_type :json
+      begin
+        request_body = JSON.parse(request.body.read)
+
+        unless request_body.is_a?(Hash) && request_body['domain_groups']
+          status 400
+          return json error: "Invalid dump format"
+        end
+
+        imported_groups = 0
+        imported_domains = 0
+        imported_routes = 0
+
+        Database.connection.transaction do
+          # Clear existing data if requested
+          if params[:clear] == 'true'
+            Route.delete_all
+            Domain.delete_all
+            DomainGroup.delete_all
+            logger.info("Cleared existing database data")
+          end
+
+          # Import domain groups
+          request_body['domain_groups'].each do |group_data|
+            group = DomainGroup.find(name: group_data['name'])
+            
+            if group
+              group.update(
+                mask: group_data['mask'],
+                interfaces: group_data['interfaces']
+              )
+            else
+              group = DomainGroup.create(
+                name: group_data['name'],
+                mask: group_data['mask'],
+                interfaces: group_data['interfaces']
+              )
+            end
+
+            imported_groups += 1
+
+            # Import domains
+            if group_data['domains']
+              group_data['domains'].each do |domain_data|
+                existing = group.domains_dataset.where(
+                  domain: domain_data['domain'],
+                  type: domain_data['type'] || 'follow_dns'
+                ).first
+
+                unless existing
+                  Domain.create(
+                    group_id: group.id,
+                    domain: domain_data['domain'],
+                    type: domain_data['type'] || 'follow_dns'
+                  )
+                  imported_domains += 1
+                end
+              end
+            end
+          end
+
+          # Import routes
+          if request_body['routes']
+            request_body['routes'].each do |route_data|
+              group_id = route_data['group_id']
+              
+              # Try to find group by ID or name
+              group = DomainGroup[group_id] if group_id
+              
+              if group
+                existing = Route.where(
+                  group_id: group.id,
+                  network: route_data['network'],
+                  mask: route_data['mask']
+                ).first
+
+                unless existing
+                  Route.create(
+                    group_id: group.id,
+                    network: route_data['network'],
+                    mask: route_data['mask'],
+                    interface: route_data['interface'],
+                    comment: route_data['comment'],
+                    synced_to_router: route_data['synced_to_router'] || false,
+                    synced_at: route_data['synced_at'] ? Time.parse(route_data['synced_at']) : nil
+                  )
+                  imported_routes += 1
+                end
+              end
+            end
+          end
+        end
+
+        logger.info("Database import completed: #{imported_groups} groups, #{imported_domains} domains, #{imported_routes} routes")
+        json({
+          success: true,
+          message: "Database imported successfully",
+          imported: {
+            groups: imported_groups,
+            domains: imported_domains,
+            routes: imported_routes
+          }
+        })
+      rescue JSON::ParserError
+        status 400
+        json error: "Invalid JSON format"
+      rescue => e
+        logger.error("Error importing database: #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint to dump router routes
+    get '/api/dumps/router-routes' do
+      content_type :json
+      begin
+        logger.info("Dumping router routes")
+        result = GetAllRoutes.new.call
+
+        if result.success?
+          router_routes = result.value!
+
+          dump_data = {
+            version: '1.0',
+            timestamp: Time.now.iso8601,
+            routes: router_routes.map do |route|
+              {
+                network: route[:network] || route[:dest],
+                mask: route[:mask] || route[:genmask],
+                interface: route[:interface] || route[:iface],
+                gateway: route[:gateway],
+                flags: route[:flags],
+                table: route[:table],
+                dev: route[:dev],
+                src: route[:src]
+              }.compact
+            end
+          }
+
+          json dump_data
+        else
+          # Handle different failure structures
+          failure = result.failure
+          error_message = if failure.is_a?(Hash)
+            # GetAllRoutes returns Failure(error: error_msg), so check error first
+            if failure[:error]
+              # If error is an exception object, get its message
+              if failure[:error].respond_to?(:message)
+                failure[:error].message
+              else
+                failure[:error].to_s
+              end
+            # Check for message (from handle_error in nested failures)
+            elsif failure[:message]
+              failure[:message]
+            # Check for nested request_failure
+            elsif failure[:request_failure]
+              nested_failure = failure[:request_failure]
+              # If nested_failure is a Failure object, extract its error
+              if nested_failure.respond_to?(:failure?) && nested_failure.failure?
+                nested_failure_hash = nested_failure.failure
+                nested_failure_hash[:error] || nested_failure_hash[:message] || "Router request failed"
+              # If it's a Typhoeus response
+              elsif nested_failure.respond_to?(:code) && nested_failure.respond_to?(:body)
+                "Router request failed with code #{nested_failure.code}: #{nested_failure.body&.slice(0, 200)}"
+              elsif nested_failure.respond_to?(:message)
+                nested_failure.message
+              else
+                "Router request failed: #{nested_failure.inspect}"
+              end
+            else
+              failure.to_s
+            end
+          else
+            failure.to_s
+          end
+          
+          error_message = "Failed to fetch routes from router" if error_message.nil? || error_message.empty?
+          
+          logger.error("Error dumping router routes: #{error_message}")
+          logger.error("Failure details: #{failure.inspect}")
+
+          status 500
+          json error: error_message
+        end
+      rescue => e
+        logger.error("Error dumping router routes: #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint to import router routes dump
+    post '/api/dumps/router-routes/import' do
+      content_type :json
+      begin
+        request_body = JSON.parse(request.body.read)
+
+        unless request_body.is_a?(Hash) && request_body['routes']
+          status 400
+          return json error: "Invalid dump format"
+        end
+
+        routes_to_add = request_body['routes'].map do |route_data|
+          {
+            network: route_data['network'] || route_data[:network],
+            mask: route_data['mask'] || route_data[:mask],
+            interface: route_data['interface'] || route_data[:interface],
+            comment: route_data['comment'] || route_data[:comment] || "Imported route"
+          }.compact
+        end
+
+        if routes_to_add.empty?
+          status 400
+          return json error: "No routes to import"
+        end
+
+        logger.info("Importing #{routes_to_add.size} routes to router")
+        result = ApplyRouteChanges.call(routes_to_add)
+
+        if result.success?
+          logger.info("Successfully imported #{routes_to_add.size} routes to router")
+          json({
+            success: true,
+            message: "Router routes imported successfully",
+            imported: routes_to_add.size
+          })
+        else
+          error_message = result.failure.to_s
+          logger.error("Failed to import router routes: #{error_message}")
+
+          status 500
+          json error: error_message
+        end
+      rescue JSON::ParserError
+        status 400
+        json error: "Invalid JSON format"
+      rescue => e
+        logger.error("Error importing router routes: #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+        status 500
+        json error: e.message
+      end
+    end
+
     # Root endpoint - API info
     get '/' do
       json({
@@ -833,6 +1142,8 @@ class KeeneticMaster
           sync_logs: '/api/sync-logs',
           dns_logs: '/api/dns-logs',
           dns_logs_stats: '/api/dns-logs/stats',
+          dumps_database: '/api/dumps/database',
+          dumps_router_routes: '/api/dumps/router-routes',
           health: '/health'
         },
         timestamp: Time.now.iso8601

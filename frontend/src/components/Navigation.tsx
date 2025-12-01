@@ -75,6 +75,12 @@ const Navigation: React.FC = () => {
                 DNS Logs
               </Nav.Link>
             </LinkContainer>
+            
+            <LinkContainer to="/dump-import">
+              <Nav.Link className={location.pathname === '/dump-import' ? 'active' : ''}>
+                Dump & Import
+              </Nav.Link>
+            </LinkContainer>
           </Nav>
           
           <Nav className="ms-auto">
