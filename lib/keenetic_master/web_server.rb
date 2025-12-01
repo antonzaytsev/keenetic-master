@@ -504,6 +504,15 @@ class KeeneticMaster
             end
           end
 
+          if params[:group_name] && !params[:group_name].empty?
+            group_name = params[:group_name]
+            comment_pattern = /\[auto:#{Regexp.escape(group_name)}\]/
+            formatted_routes = formatted_routes.select do |route|
+              comment = route[:comment] || ''
+              comment_pattern.match?(comment)
+            end
+          end
+
           json({
             success: true,
             routes: formatted_routes,

@@ -154,6 +154,7 @@ export const apiService = {
     interface?: string;
     proto?: string;
     network?: string;
+    group_name?: string;
   }): Promise<any> => {
     const response = await api.get('/api/router-routes', { params });
     return response.data;
