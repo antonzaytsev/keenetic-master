@@ -192,18 +192,31 @@ const GroupDetails: React.FC = () => {
   };
 
   const loadRouterRoutes = async () => {
-    if (!groupName) return;
+    if (!groupName || !group) return;
 
     try {
       setRouterRoutesLoading(true);
       setRouterRoutesError(null);
 
-      const result = await apiService.getRouterRoutes(groupName);
+      // Build filter params based on group configuration
+      const params: { interface?: string } = {};
+      
+      // Filter by interface if group has one configured
+      if (group.interfaces) {
+        // Handle comma-separated interfaces - use the first one
+        const interfaceIds = group.interfaces.split(',').map(id => id.trim());
+        if (interfaceIds.length > 0) {
+          params.interface = interfaceIds[0];
+        }
+      }
+
+      // Load routes directly from router
+      const result = await apiService.getAllRouterRoutes(params);
 
       if (result.success) {
         setRouterRoutes(result.routes || []);
       } else {
-        setRouterRoutesError('Failed to load router routes');
+        setRouterRoutesError(result.error || 'Failed to load router routes');
       }
     } catch (err: any) {
       console.error('Error loading router routes:', err);
@@ -916,10 +929,7 @@ const GroupDetails: React.FC = () => {
                         <th>Network</th>
                         <th>Mask</th>
                         <th>Interface</th>
-                        <th>Gateway</th>
-                        <th>Metric</th>
-                        <th>Protocol</th>
-                        <th>Type</th>
+                        <th>Comment</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -939,16 +949,11 @@ const GroupDetails: React.FC = () => {
                             )}
                           </td>
                           <td>
-                            <code className="text-secondary">{route.gateway || '-'}</code>
-                          </td>
-                          <td>
-                            <Badge bg="secondary">{route.metric || '0'}</Badge>
-                          </td>
-                          <td>
-                            <Badge bg="success">{route.proto || 'unknown'}</Badge>
-                          </td>
-                          <td>
-                            <span className="text-muted">{route.type || 'unicast'}</span>
+                            {route.comment ? (
+                              <small className="text-muted">{route.comment}</small>
+                            ) : (
+                              <span className="text-muted">-</span>
+                            )}
                           </td>
                         </tr>
                       ))}

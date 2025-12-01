@@ -487,6 +487,7 @@ class KeeneticMaster
               table: route[:table],
               dev: route[:dev],
               src: route[:src],
+              comment: route[:comment],
               description: "Route to #{route[:network] || route[:dest]} via #{route[:gateway] || 'direct'}"
             }
           end
