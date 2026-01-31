@@ -1,2 +1,3 @@
-config/cookie
-config/domains.yml
+backend/config/cookie
+backend/config/domains.yml
+frontend/node_modules

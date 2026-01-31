@@ -29,33 +29,33 @@ help:
 
 # Install dependencies
 install:
-	bundle install
+	cd backend && bundle install
 
 # Run test suite
 test:
-	bundle exec rspec
+	cd backend && bundle exec rspec
 
 # Run test suite with coverage
 test-coverage:
-	COVERAGE=true bundle exec rspec
+	cd backend && COVERAGE=true bundle exec rspec
 
 # Run RuboCop linter
 lint:
-	bundle exec rubocop
+	cd backend && bundle exec rubocop
 
 # Auto-fix formatting issues
 format:
-	bundle exec rubocop -A
+	cd backend && bundle exec rubocop -A
 
 # Clean temporary files and logs
 clean:
-	rm -rf tmp/logs/*
-	rm -rf tmp/request-dumps/*
-	rm -rf spec/examples.txt
+	rm -rf backend/tmp/logs/*
+	rm -rf backend/tmp/request-dumps/*
+	rm -rf backend/spec/examples.txt
 
 # Start interactive console
 console:
-	bundle exec pry -r ./config/application
+	cd backend && bundle exec pry -r ./config/application
 
 # Update specific domain groups (usage: make update GROUPS="github youtube")
 update:
@@ -63,11 +63,11 @@ update:
 		echo "Usage: make update GROUPS=\"group1 group2\""; \
 		exit 1; \
 	fi
-	bundle exec ruby cmd/update_group.rb $(GROUPS)
+	cd backend && bundle exec ruby cmd/update_group.rb $(GROUPS)
 
 # Update all domain groups
 update-all:
-	bundle exec ruby cmd/update_group.rb
+	cd backend && bundle exec ruby cmd/update_group.rb
 
 # Initial project setup
 setup: install
@@ -76,12 +76,12 @@ setup: install
 		echo "Creating .env file from example..."; \
 		cp .env.example .env 2>/dev/null || echo "Please create .env file manually"; \
 	fi
-	@if [ ! -f config/domains.yml ]; then \
+	@if [ ! -f backend/config/domains.yml ]; then \
 		echo "Creating domains.yml from example..."; \
-		cp config/domains.yml.example config/domains.yml 2>/dev/null || echo "Please create config/domains.yml manually"; \
+		cp backend/config/domains.yml.example backend/config/domains.yml 2>/dev/null || echo "Please create backend/config/domains.yml manually"; \
 	fi
-	@mkdir -p tmp/logs tmp/request-dumps config
-	@echo "Setup complete! Please edit .env and config/domains.yml with your settings."
+	@mkdir -p backend/tmp/logs backend/tmp/request-dumps backend/config
+	@echo "Setup complete! Please edit .env and backend/config/domains.yml with your settings."
 
 # Run all checks (tests and linting)
 check: test lint
@@ -92,6 +92,16 @@ dev: clean install test lint
 # Production deployment preparation
 deploy-check: clean install test lint
 	@echo "All checks passed! Ready for deployment."
+
+# Database commands
+db-setup:
+	cd backend && bundle exec ruby cmd/database_manager.rb setup
+
+db-status:
+	cd backend && bundle exec ruby cmd/database_manager.rb status
+
+db-sync:
+	cd backend && bundle exec ruby cmd/database_manager.rb sync
 
 # Development environment with hot reloading
 dev-up:

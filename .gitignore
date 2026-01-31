@@ -1,7 +1,7 @@
 .env
-config/cookie
-config/domains.yml
-tmp
+backend/config/cookie
+backend/config/domains.yml
+backend/tmp
 .cursor/
 logs/
-.env
+frontend/node_modules

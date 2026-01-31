@@ -20,7 +20,7 @@ services:
 
   dns-logs:
     build:
-      context: .
+      context: ./backend
       args:
         RUBY_VERSION: '3.4.1'
     image: keenetic-master:1.0.0
@@ -28,7 +28,7 @@ services:
     tty: true
     restart: unless-stopped
     volumes:
-      - .:/app
+      - ./backend:/app
       - bundle_cache:/usr/local/bundle
     env_file: ".env"
     environment:
@@ -44,7 +44,7 @@ services:
 
   backend:
     build:
-      context: .
+      context: ./backend
       args:
         RUBY_VERSION: '3.4.1'
     image: keenetic-master:1.0.0
@@ -54,7 +54,7 @@ services:
     ports:
       - "${BACKEND_PORT:-3201}:3000"
     volumes:
-      - .:/app
+      - ./backend:/app
       - bundle_cache:/usr/local/bundle
     env_file: ".env"
     environment:
