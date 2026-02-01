@@ -219,6 +219,11 @@ export const apiService = {
     return response.data;
   },
 
+  deleteGroupRouterRoutes: async (groupName: string): Promise<any> => {
+    const response = await api.delete(`/api/router-routes/auto/${encodeURIComponent(groupName)}`);
+    return response.data;
+  },
+
   deleteAllRoutes: async (): Promise<any> => {
     const response = await api.delete('/api/routes');
     return response.data;

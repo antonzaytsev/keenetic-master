@@ -535,6 +535,108 @@ class KeeneticMaster
       end
     end
 
+    # API endpoint to delete all routes for a specific group from router
+    delete '/api/router-routes/auto/:group_name' do
+      content_type :json
+      begin
+        group_name = params[:group_name]
+        logger.info("Deleting all routes for group '#{group_name}' from router")
+
+        # Get all routes from router
+        result = GetAllRoutes.new.call
+
+        unless result.success?
+          error_message = result.failure[:error] || "Failed to fetch routes from router"
+          logger.error("Error getting router routes: #{error_message}")
+          status 500
+          return json error: error_message
+        end
+
+        router_routes = result.value!
+
+        # Filter routes with comments matching [auto:group_name]
+        comment_pattern = /\[auto:#{Regexp.escape(group_name)}\]/
+        group_routes = router_routes.select do |route|
+          comment = route[:comment] || route[:description]
+          comment && comment_pattern.match?(comment.to_s)
+        end
+
+        if group_routes.empty?
+          logger.info("No routes found for group '#{group_name}'")
+          return json({
+            success: true,
+            message: "No routes found for group '#{group_name}'",
+            deleted_count: 0
+          })
+        end
+
+        logger.info("Found #{group_routes.size} routes for group '#{group_name}' to delete")
+
+        # Prepare routes for deletion
+        routes_to_delete = group_routes.map do |route|
+          {
+            network: route[:network] || route[:dest],
+            mask: route[:mask] || route[:genmask] || '255.255.255.255',
+            comment: route[:comment] || route[:description],
+            interface: route[:interface] || route[:iface]
+          }.compact
+        end
+
+        # Delete routes in batches of 10
+        batch_size = 10
+        total_deleted = 0
+        failed_batches = 0
+        errors = []
+
+        routes_to_delete.each_slice(batch_size).with_index do |batch, index|
+          logger.info("Deleting batch #{index + 1} (#{batch.size} routes)")
+          
+          delete_result = DeleteRoutes.call(batch)
+          
+          if delete_result.success?
+            total_deleted += batch.size
+            logger.info("Successfully deleted batch #{index + 1} (#{batch.size} routes)")
+          else
+            failed_batches += 1
+            error_message = delete_result.failure.to_s
+            errors << "Batch #{index + 1}: #{error_message}"
+            logger.error("Failed to delete batch #{index + 1}: #{error_message}")
+          end
+          
+          # Small delay between batches to avoid overwhelming the router
+          sleep(0.1) if index < (routes_to_delete.size / batch_size.to_f).ceil - 1
+        end
+
+        if failed_batches == 0
+          logger.info("Successfully deleted all #{total_deleted} routes for group '#{group_name}'")
+          json({
+            success: true,
+            message: "Successfully deleted #{total_deleted} routes for group '#{group_name}'",
+            deleted_count: total_deleted
+          })
+        elsif total_deleted > 0
+          logger.warn("Partially deleted routes for group '#{group_name}': #{total_deleted} succeeded, #{failed_batches} batches failed")
+          json({
+            success: true,
+            message: "Deleted #{total_deleted} routes for group '#{group_name}' (#{failed_batches} batches failed)",
+            deleted_count: total_deleted,
+            failed_batches: failed_batches,
+            errors: errors
+          })
+        else
+          error_message = errors.join('; ')
+          logger.error("Failed to delete all routes for group '#{group_name}': #{error_message}")
+          status 500
+          json error: "Failed to delete routes: #{error_message}"
+        end
+      rescue => e
+        logger.error("Error deleting routes for group '#{params[:group_name]}': #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+        status 500
+        json error: e.message
+      end
+    end
+
     # API endpoint to delete all routes with [auto prefix
     delete '/api/router-routes/auto' do
       content_type :json

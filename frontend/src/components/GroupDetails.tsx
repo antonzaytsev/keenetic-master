@@ -30,6 +30,8 @@ const GroupDetails: React.FC = () => {
   const [updatingConfig, setUpdatingConfig] = useState(false);
   const [routerInterfaces, setRouterInterfaces] = useState<Array<{ id: string; description: string; name: string }>>([]);
   const [loadingInterfaces, setLoadingInterfaces] = useState(false);
+  const [showDeleteRoutesModal, setShowDeleteRoutesModal] = useState(false);
+  const [deletingRoutes, setDeletingRoutes] = useState(false);
 
   useEffect(() => {
     const loadGroupDetails = async () => {
@@ -441,6 +443,26 @@ const GroupDetails: React.FC = () => {
       showNotification('error', `Failed to delete domain: ${errorMessage}`);
     } finally {
       setDeletingDomain(null);
+    }
+  };
+
+  const handleDeleteGroupRoutes = async () => {
+    if (!groupName) return;
+
+    setShowDeleteRoutesModal(false);
+    setDeletingRoutes(true);
+
+    try {
+      const result = await apiService.deleteGroupRouterRoutes(groupName);
+      showNotification('success', result.message || `Successfully deleted ${result.deleted_count || 0} routes for group "${groupName}"`);
+      await loadRouterRoutes();
+    } catch (err: any) {
+      console.error('Error deleting group routes:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      setError(`Failed to delete group routes: ${errorMessage}`);
+      showNotification('error', `Failed to delete group routes: ${errorMessage}`);
+    } finally {
+      setDeletingRoutes(false);
     }
   };
 
@@ -897,24 +919,45 @@ const GroupDetails: React.FC = () => {
                   <i className="fas fa-router me-2"></i>
                   IP Routes in Router ({routerRoutes.length})
                 </h6>
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  onClick={loadRouterRoutes}
-                  disabled={routerRoutesLoading}
-                >
-                  {routerRoutesLoading ? (
-                    <>
-                      <div className="loading-spinner me-1"></div>
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-refresh me-1"></i>
-                      Refresh
-                    </>
-                  )}
-                </Button>
+                <div>
+                  <Button
+                    variant="outline-danger"
+                    size="sm"
+                    onClick={() => setShowDeleteRoutesModal(true)}
+                    disabled={routerRoutesLoading || deletingRoutes || routerRoutes.length === 0}
+                    className="me-2"
+                  >
+                    {deletingRoutes ? (
+                      <>
+                        <div className="loading-spinner me-1"></div>
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-trash-alt me-1"></i>
+                        Delete All Routes
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={loadRouterRoutes}
+                    disabled={routerRoutesLoading}
+                  >
+                    {routerRoutesLoading ? (
+                      <>
+                        <div className="loading-spinner me-1"></div>
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-refresh me-1"></i>
+                        Refresh
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </Card.Header>
             <Card.Body className="p-0">
@@ -992,6 +1035,17 @@ const GroupDetails: React.FC = () => {
         variant="danger"
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
+      />
+
+      <ConfirmModal
+        show={showDeleteRoutesModal}
+        title="Delete Group Routes from Router"
+        message={`Are you sure you want to delete all ${routerRoutes.length} routes for group "${groupName}" from the router? This will remove all routes with [auto:${groupName}] comment from the Keenetic router.`}
+        confirmText="Delete All"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={handleDeleteGroupRoutes}
+        onCancel={() => setShowDeleteRoutesModal(false)}
       />
     </>
   );
