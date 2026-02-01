@@ -620,11 +620,13 @@ class KeeneticMaster
           router_routes = result.value!
 
           # Transform router routes to match our expected format
+          # Note: Keenetic uses :host for single IP routes (/32), :network for network routes
           formatted_routes = router_routes.map.with_index do |route, index|
+            network_value = route[:network] || route[:host] || route[:dest]
             {
               id: index, # Router routes don't have database IDs
-              network: route[:network] || route[:dest],
-              mask: route[:mask] || route[:genmask],
+              network: network_value,
+              mask: route[:mask] || route[:genmask] || (route[:host] ? '255.255.255.255' : nil),
               interface: route[:interface] || route[:iface],
               gateway: route[:gateway],
               flags: route[:flags],
@@ -632,7 +634,7 @@ class KeeneticMaster
               dev: route[:dev],
               src: route[:src],
               comment: route[:comment],
-              description: "Route to #{route[:network] || route[:dest]} via #{route[:gateway] || 'direct'}"
+              description: "Route to #{network_value} via #{route[:gateway] || 'direct'}"
             }
           end
 
@@ -717,13 +719,22 @@ class KeeneticMaster
         logger.info("Found #{group_routes.size} routes for group '#{group_name}' to delete")
 
         # Prepare routes for deletion
+        # Note: Keenetic uses :host for single IP routes (/32), :network for network routes
+        # Preserve the original format (host vs network/mask) for accurate deletion
         routes_to_delete = group_routes.map do |route|
-          {
-            network: route[:network] || route[:dest],
-            mask: route[:mask] || route[:genmask] || '255.255.255.255',
+          delete_route = {
             comment: route[:comment] || route[:description],
             interface: route[:interface] || route[:iface]
-          }.compact
+          }
+          
+          if route[:host]
+            delete_route[:host] = route[:host]
+          else
+            delete_route[:network] = route[:network] || route[:dest]
+            delete_route[:mask] = route[:mask] || route[:genmask] || '255.255.255.255'
+          end
+          
+          delete_route.compact
         end
 
         # Delete routes in batches of 10
@@ -817,13 +828,22 @@ class KeeneticMaster
         logger.info("Found #{auto_routes.size} routes with [auto prefix to delete")
 
         # Prepare routes for deletion
+        # Note: Keenetic uses :host for single IP routes (/32), :network for network routes
+        # Preserve the original format (host vs network/mask) for accurate deletion
         routes_to_delete = auto_routes.map do |route|
-          {
-            network: route[:network] || route[:dest],
-            mask: route[:mask] || route[:genmask] || '255.255.255.255',
+          delete_route = {
             comment: route[:comment] || route[:description],
             interface: route[:interface] || route[:iface]
-          }.compact
+          }
+          
+          if route[:host]
+            delete_route[:host] = route[:host]
+          else
+            delete_route[:network] = route[:network] || route[:dest]
+            delete_route[:mask] = route[:mask] || route[:genmask] || '255.255.255.255'
+          end
+          
+          delete_route.compact
         end
 
         # Delete routes in batches of 10
