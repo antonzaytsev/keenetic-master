@@ -1,16 +1,25 @@
-require_relative 'mutate_route_request'
-
 class KeeneticMaster
-  class DeleteRoute < MutateRouteRequest
+  class DeleteRoute < BaseClass
     def call(host: nil, network: nil, mask: nil)
-      route = {
-        "no" => true,
-      }
+      route_params = {}
 
-      process_host(route, host:, network:, mask:)
-      body = build_body(route)
+      if host
+        route_params[:host] = host
+      elsif network
+        # Support CIDR notation or network/mask pair
+        if mask
+          cidr = Constants::MASKS.key(mask) || '32'
+          route_params[:network] = "#{network}/#{cidr}"
+        else
+          route_params[:network] = network
+        end
+      end
 
-      make_request(body)
+      Configuration.keenetic_client.routes.delete(**route_params)
+      Success(message: "Route deleted successfully")
+    rescue Keenetic::ApiError => e
+      logger.error("DeleteRoute failed: #{e.message}")
+      Failure(message: "Failed to delete route: #{e.message}")
     end
   end
 end
