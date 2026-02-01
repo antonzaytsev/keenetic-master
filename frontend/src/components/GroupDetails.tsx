@@ -32,6 +32,7 @@ const GroupDetails: React.FC = () => {
   const [loadingInterfaces, setLoadingInterfaces] = useState(false);
   const [showDeleteRoutesModal, setShowDeleteRoutesModal] = useState(false);
   const [deletingRoutes, setDeletingRoutes] = useState(false);
+  const [generatingRoutes, setGeneratingRoutes] = useState(false);
 
   useEffect(() => {
     const loadGroupDetails = async () => {
@@ -463,6 +464,25 @@ const GroupDetails: React.FC = () => {
       showNotification('error', `Failed to delete group routes: ${errorMessage}`);
     } finally {
       setDeletingRoutes(false);
+    }
+  };
+
+  const handleGenerateRoutes = async () => {
+    if (!group) return;
+
+    setGeneratingRoutes(true);
+
+    try {
+      const result = await apiService.generateGroupRoutes(group.id);
+      showNotification('success', result.message || `Generated ${result.routes_added || 0} routes`);
+      await loadRouterRoutes();
+    } catch (err: any) {
+      console.error('Error generating routes:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      setError(`Failed to generate routes: ${errorMessage}`);
+      showNotification('error', `Failed to generate routes: ${errorMessage}`);
+    } finally {
+      setGeneratingRoutes(false);
     }
   };
 
@@ -921,10 +941,29 @@ const GroupDetails: React.FC = () => {
                 </h6>
                 <div>
                   <Button
+                    variant="outline-success"
+                    size="sm"
+                    onClick={handleGenerateRoutes}
+                    disabled={routerRoutesLoading || generatingRoutes || deletingRoutes}
+                    className="me-2"
+                  >
+                    {generatingRoutes ? (
+                      <>
+                        <div className="loading-spinner me-1"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-magic me-1"></i>
+                        Generate Routes
+                      </>
+                    )}
+                  </Button>
+                  <Button
                     variant="outline-danger"
                     size="sm"
                     onClick={() => setShowDeleteRoutesModal(true)}
-                    disabled={routerRoutesLoading || deletingRoutes || routerRoutes.length === 0}
+                    disabled={routerRoutesLoading || deletingRoutes || generatingRoutes || routerRoutes.length === 0}
                     className="me-2"
                   >
                     {deletingRoutes ? (

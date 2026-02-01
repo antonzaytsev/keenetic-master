@@ -20,7 +20,12 @@ class KeeneticMaster
     end
 
     def call(base_api_url = nil)
-      @base_api_url = base_api_url || ENV['DNS_LOGS_API_URL'] || 'http://192.168.0.30:8080/api/search'
+      @base_api_url = base_api_url || ExternalServices::DnsServer.search_url
+
+      unless @base_api_url.present?
+        puts "DNS_SERVER_URL is not configured"
+        return
+      end
 
       if follow_dns.blank?
         puts "Нет ни одной группы в базе данных с параметром follow_dns"
