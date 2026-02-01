@@ -1,80 +1,59 @@
 class KeeneticMaster
   class ToggleClientPolicy < BaseClass
     def call(client_name, policy_name = "!WG1")
-      data_result = load_data
-      return Failure(data) if data_result.failure?
+      client = Configuration.keenetic_client
 
-      data = data_result.value!
+      # Get policies and hosts
+      policies = client.hotspot.policies
+      hosts = client.hotspot.hosts
 
-      vpn_policy = find_policy(data, policy_name)
-      client_mac = find_client_mac(data, client_name)
+      # Find target policy by description
+      vpn_policy = find_policy(policies, policy_name)
+      
+      # Find client MAC by name
+      client_mac = find_client_mac(hosts, client_name)
       return client_mac if client_mac.failure?
 
-      current_client_policy = find_client_policy(data, client_mac.value!)
+      mac = client_mac.value!
+      
+      # Find current policy for this client
+      current_policy = find_current_policy(hosts, mac)
 
-      update_client_policy(client_mac.value!, current_client_policy, vpn_policy)
+      # Toggle: remove if has policy, set if doesn't
+      if current_policy
+        client.hotspot.set_host_policy(mac: mac, policy: nil)
+        Success(message: "VPN disabled for client")
+      else
+        client.hotspot.set_host_policy(mac: mac, policy: vpn_policy)
+        Success(message: "VPN enabled for client")
+      end
+    rescue Keenetic::ApiError => e
+      logger.error("ToggleClientPolicy failed: #{e.message}")
+      Failure(error: e.message)
     end
 
     private
 
-    def load_data
-      # response = Client.new.post_rci({"show": {"sc": {"ip": {"policy": {}}}}})
-      # response = Client.new.post_rci({"show": {"sc": {"ip": {"hotspot": {"policy": {}}}}}})
-
-      body = [
-        {"show": {"sc": {"ip": {"policy": {}}}}},
-        {"show": {"sc": {"ip": {"hotspot": {"host": {}}}}}},
-        {"show": {"ip": {"hotspot": {}}}}
-      ]
-
-      response = Client.new.post_rci(body)
-      Failure(response) if response.code != 200
-
-      data = JSON.parse(response.body)
-      Success({}.tap { |result| data.each { |el| result.deep_merge!(el) } })
-    end
-
-    def find_policy(data, policy_name)
-      policies = data.dig('show', 'sc', 'ip', 'policy')
-
+    def find_policy(policies, policy_name)
       policies.each do |policy_key, policy_data|
         return policy_key if policy_data['description'] == policy_name
       end
-
-      policies.keys[0]
+      policies.keys.first
     end
 
-    def find_client_mac(data, client_name)
-      client = data.dig('show', 'ip', 'hotspot', 'host').detect do |host|
-        host['name'] == client_name || host['hostname'] == client_name
+    def find_client_mac(hosts, client_name)
+      # hosts from hotspot.hosts includes both config and runtime data
+      host = hosts.detect do |h|
+        h['name'] == client_name || h['hostname'] == client_name
       end
-      return Failure(error: 'cant find client by name') if client.nil?
-
-      Success(client['mac'])
+      
+      return Failure(error: "Cannot find client by name: #{client_name}") if host.nil?
+      Success(host['mac'])
     end
 
-    def find_client_policy(data, mac)
-      client = data.dig('show', 'sc', 'ip', 'hotspot', 'host').detect { |host| host['mac'] == mac }
-      client['policy']
-    end
-
-    def update_client_policy(mac, current_client_policy, vpn_policy)
-      policy =
-        if current_client_policy
-          {no: true}
-        else
-          vpn_policy
-        end
-
-      body = [
-        {"webhelp": {"event": {"push": {"data": {"type": "configuration_change", "value": { "url": "/policies/policy-consumers"}}.to_json}}}},
-        {"ip": {"hotspot": {"host": {"mac": mac, "permit": true, "policy": policy}}}},
-        {"system": {"configuration": {"save": {}}}}
-      ]
-      response = Client.new.post_rci(body)
-      return Failure(response) if response.code != 200
-
-      Success(message: "Клиенту #{current_client_policy ? "выключен" : "включен"} VPN")
+    def find_current_policy(hosts, mac)
+      host = hosts.detect { |h| h['mac'] == mac }
+      host&.dig('policy')
     end
   end
 end
