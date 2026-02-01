@@ -224,11 +224,6 @@ export const apiService = {
     return response.data;
   },
 
-  generateGroupRoutes: async (groupId: number): Promise<any> => {
-    const response = await api.post(`/api/domain-groups/${groupId}/generate-routes`);
-    return response.data;
-  },
-
   deleteAllRoutes: async (): Promise<any> => {
     const response = await api.delete('/api/routes');
     return response.data;

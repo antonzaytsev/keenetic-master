@@ -412,148 +412,6 @@ class KeeneticMaster
       end
     end
 
-    # API endpoint to generate routes from DNS history for a group
-    post '/api/domain-groups/:id/generate-routes' do
-      content_type :json
-      begin
-        group_id = params[:id].to_i
-        group = DomainGroup[group_id]
-
-        unless group
-          status 404
-          return json error: "Domain group not found"
-        end
-
-        unless ExternalServices::DnsServer.configured?
-          status 400
-          return json error: "DNS_SERVER_URL environment variable is not configured"
-        end
-
-        # Get follow_dns domains for this group
-        follow_dns_domains = group.domains_dataset.where(type: 'follow_dns').map(:domain)
-        if follow_dns_domains.empty?
-          return json({
-            success: true,
-            message: "No DNS monitored domains configured for this group",
-            routes_added: 0,
-            domains_matched: 0
-          })
-        end
-
-        # Calculate since date (1 month ago)
-        since_time = (Time.now - 30 * 24 * 60 * 60).utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-        api_url = "#{ExternalServices::DnsServer.domains_url}?since=#{URI.encode_www_form_component(since_time)}"
-
-        logger.info("Fetching domains from DNS server: #{api_url}")
-
-        # Fetch domains from DNS server
-        response = Typhoeus.get(api_url,
-          timeout: 60,
-          connecttimeout: 10,
-          headers: {
-            "Accept" => "application/json",
-            "User-Agent" => "KeeneticMaster/#{KeeneticMaster::VERSION}"
-          }
-        )
-
-        unless response.success?
-          logger.error("Failed to fetch domains from DNS server: HTTP #{response.code}")
-          status 502
-          return json error: "Failed to fetch domains from DNS server: HTTP #{response.code}"
-        end
-
-        dns_data = JSON.parse(response.body)
-        dns_entries = dns_data['results'] || dns_data['domains'] || dns_data
-        dns_entries = [dns_entries] unless dns_entries.is_a?(Array)
-
-        logger.info("Received #{dns_entries.size} entries from DNS server")
-
-        # Get group interfaces
-        interfaces = group.interfaces_list.presence || Configuration.vpn_interfaces
-
-        # Get group mask
-        mask_value = group.mask || Configuration.domains_mask
-        mask = Constants::MASKS[mask_value.to_s] || Constants::MASKS['32']
-
-        routes_to_add = []
-        matched_domains = Set.new
-
-        dns_entries.each do |entry|
-          next unless entry.is_a?(Hash)
-
-          # Handle different response formats
-          requested_domain = entry['domain'] || entry.dig('request', 'query')&.chomp('.')
-          ip_addresses = entry['ips'] || entry['answers']&.map(&:last) || []
-
-          next if requested_domain.nil? || ip_addresses.empty?
-
-          # Check if domain matches any follow_dns pattern
-          follow_dns_domains.each do |pattern|
-            if requested_domain == pattern || requested_domain.end_with?(".#{pattern}")
-              matched_domains.add(requested_domain)
-
-              ip_addresses.each do |ip|
-                next unless ip =~ /^\d+\.\d+\.\d+\.\d+$/
-
-                interfaces.each do |interface|
-                  routes_to_add << {
-                    network: ip,
-                    mask: mask,
-                    interface: CorrectInterface.call(interface),
-                    comment: "[auto:#{group.name}] #{requested_domain}",
-                    auto: true
-                  }
-                end
-              end
-              break
-            end
-          end
-        end
-
-        # Remove duplicate routes
-        routes_to_add.uniq! { |r| [r[:network], r[:mask], r[:interface]] }
-
-        if routes_to_add.empty?
-          return json({
-            success: true,
-            message: "No matching domains found in DNS history",
-            routes_added: 0,
-            domains_matched: 0
-          })
-        end
-
-        logger.info("Adding #{routes_to_add.size} routes for #{matched_domains.size} matched domains")
-
-        # Apply routes to router
-        result = ApplyRouteChanges.call(routes_to_add)
-
-        if result.success?
-          logger.info("Successfully added #{routes_to_add.size} routes for group '#{group.name}'")
-          json({
-            success: true,
-            message: "Successfully added #{routes_to_add.size} routes for #{matched_domains.size} matched domains",
-            routes_added: routes_to_add.size,
-            domains_matched: matched_domains.size,
-            matched_domains: matched_domains.to_a.sort
-          })
-        else
-          error_message = result.failure.to_s
-          logger.error("Failed to add routes: #{error_message}")
-          status 500
-          json error: "Failed to add routes to router: #{error_message}"
-        end
-      rescue JSON::ParserError => e
-        logger.error("Failed to parse DNS server response: #{e.message}")
-        status 502
-        json error: "Failed to parse DNS server response: #{e.message}"
-      rescue => e
-        logger.error("Error generating routes: #{e.message}")
-        logger.error(e.backtrace.join("\n"))
-        status 500
-        json error: e.message
-      end
-    end
-
     # API endpoint to get router routes for a domain group
     get '/api/domains/:name/router-routes' do
       content_type :json
@@ -726,14 +584,14 @@ class KeeneticMaster
             comment: route[:comment] || route[:description],
             interface: route[:interface] || route[:iface]
           }
-          
+
           if route[:host]
             delete_route[:host] = route[:host]
           else
             delete_route[:network] = route[:network] || route[:dest]
             delete_route[:mask] = route[:mask] || route[:genmask] || '255.255.255.255'
           end
-          
+
           delete_route.compact
         end
 
@@ -835,14 +693,14 @@ class KeeneticMaster
             comment: route[:comment] || route[:description],
             interface: route[:interface] || route[:iface]
           }
-          
+
           if route[:host]
             delete_route[:host] = route[:host]
           else
             delete_route[:network] = route[:network] || route[:dest]
             delete_route[:mask] = route[:mask] || route[:genmask] || '255.255.255.255'
           end
-          
+
           delete_route.compact
         end
 
