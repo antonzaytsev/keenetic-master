@@ -1,6 +1,3 @@
-require 'typhoeus'
-require 'json'
-
 class KeeneticMaster
   class GetGroupRouterRoutes < BaseClass
     def call(group_name)
@@ -31,25 +28,12 @@ class KeeneticMaster
     private
 
     def get_router_routes
-      body = [
-        {"show": {"sc": {"ip": {"route": {}}}}}
-      ]
-
-      response = Client.post_rci(body)
-      return Failure(request_failure: response, error: "Failed to connect to router") if response.code != 200
-
-      begin
-        result = JSON.parse(response.body).dig(0, 'show', 'sc', 'ip', 'route')
-        return Failure(error: "No route data in response") unless result
-
-        routes = result.map do |row|
-          row.transform_keys(&:to_sym)
-        end
-
-        Success(routes)
-      rescue JSON::ParserError => e
-        Failure(error: "Failed to parse router response: #{e.message}")
-      end
+      routes = Configuration.keenetic_client.routes.all
+      routes = routes.map { |row| row.transform_keys(&:to_sym) }
+      Success(routes)
+    rescue Keenetic::ApiError => e
+      logger.error("Failed to get routes: #{e.message}")
+      Failure(error: "Failed to connect to router: #{e.message}")
     end
   end
 end

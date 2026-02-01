@@ -5,7 +5,7 @@ require_relative '../database'
 require_relative '../models'
 
 class KeeneticMaster
-  class UpdateDomainRoutesMinimize < MutateRouteRequest
+  class UpdateDomainRoutesMinimize < BaseClass
     PATTERN = "[auto:{website}]"
 
     def call(groups, delete_missing: true)
@@ -299,6 +299,36 @@ class KeeneticMaster
 
     def valid_ip_or_mask?(domain)
       domain.match?(/^[\d.\/]+$/)
+    end
+
+    # Route processing helpers (moved from MutateRouteRequest)
+    def process_host(route, host:, network:, mask:)
+      if host && host =~ /\//
+        network, cidr_notation = host.split('/')
+        mask = Constants::MASKS.fetch(cidr_notation)
+        host = nil
+      end
+
+      if host
+        route[:host] = host
+      else
+        route[:network] = network
+        route[:mask] = mask
+      end
+    end
+
+    def process_route(route)
+      if route[:host] && route[:host] =~ /\//
+        route[:network], cidr_notation = route[:host].split('/')
+        route[:mask] = Constants::MASKS.fetch(cidr_notation)
+        route.delete(:host)
+      end
+
+      if route[:host]
+        route.slice(:host)
+      else
+        route.slice(:network, :mask)
+      end
     end
   end
 end

@@ -1,11 +1,10 @@
-require_relative 'mutate_route_request'
 require_relative '../database'
 require_relative '../models'
 require 'typhoeus'
 require 'json'
 
 class KeeneticMaster
-  class FollowDnsLogs < MutateRouteRequest
+  class FollowDnsLogs < BaseClass
     WAIT = 10
     DOMAINS_FILE_CACHE_TTL = 5
     API_TIMEOUT = 30
