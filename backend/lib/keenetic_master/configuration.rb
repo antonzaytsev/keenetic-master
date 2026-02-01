@@ -1,14 +1,25 @@
+require 'keenetic'
+
 class KeeneticMaster
   module Configuration
     class ConfigurationError < StandardError; end
 
     class << self
-      def keenetic_credentials
-        @keenetic_credentials ||= {
-          login: required_env('KEENETIC_LOGIN'),
-          password: required_env('KEENETIC_PASSWORD'),
-          host: required_env('KEENETIC_HOST')
-        }
+      def configure_keenetic_client!
+        Keenetic.configure do |config|
+          config.host = required_env('KEENETIC_HOST')
+          config.login = required_env('KEENETIC_LOGIN')
+          config.password = required_env('KEENETIC_PASSWORD')
+          config.timeout = 30
+          config.logger = Logger.new($stdout) if ENV['DEBUG']
+        end
+      end
+
+      def keenetic_client
+        @keenetic_client ||= begin
+          configure_keenetic_client!
+          Keenetic.client
+        end
       end
 
       def vpn_interfaces
@@ -36,18 +47,12 @@ class KeeneticMaster
         ENV.fetch('DELETE_ROUTES', 'true').downcase == 'true'
       end
 
-      def cookie_file_path
-        ENV.fetch('COOKIE_FILE', 'config/cookie')
-      end
-
       def request_dumps_dir
         ENV.fetch('REQUEST_DUMPS_DIR', 'tmp/request-dumps')
       end
 
       def validate!
-        required_env('KEENETIC_LOGIN')
-        required_env('KEENETIC_PASSWORD')
-        required_env('KEENETIC_HOST')
+        configure_keenetic_client!
         
         # DOMAINS_FILE is now optional since we use database
         # Only validate it exists if it's explicitly set for migration purposes
@@ -56,7 +61,6 @@ class KeeneticMaster
         end
 
         FileUtils.mkdir_p(request_dumps_dir) unless File.directory?(request_dumps_dir)
-        FileUtils.mkdir_p(File.dirname(cookie_file_path)) unless File.directory?(File.dirname(cookie_file_path))
       end
 
       private
