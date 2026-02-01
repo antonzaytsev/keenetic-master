@@ -1,20 +1,41 @@
-require_relative 'mutate_route_request'
-
 class KeeneticMaster
-  class AddRoutes < MutateRouteRequest
+  class AddRoutes < BaseClass
     def call(routes)
       return Success(empty: true) if routes.empty?
 
-      routes.each do |route|
-        route[:gateway] ||= ''
-        route[:auto] = true unless route.key?(:auto)
-        route[:reject] = false unless route.key?(:reject)
-
-        process_host(route, host: route[:host], network: route[:network], mask: route[:mask])
+      # Transform routes to gem format
+      gem_routes = routes.map do |route|
+        transform_route(route)
       end
 
-      body = build_body_routes(routes)
-      make_request(body)
+      Configuration.keenetic_client.routes.add_batch(gem_routes)
+      Success(message: "#{routes.size} route(s) added successfully")
+    rescue Keenetic::ApiError => e
+      logger.error("AddRoutes failed: #{e.message}")
+      Failure(message: "Failed to add routes: #{e.message}")
+    end
+
+    private
+
+    def transform_route(route)
+      result = {
+        interface: route[:interface] || 'Wireguard0',
+        comment: route[:comment]
+      }
+
+      if route[:host]
+        result[:host] = route[:host]
+      elsif route[:network]
+        # Support CIDR notation or network/mask pair
+        if route[:mask]
+          cidr = Constants::MASKS.key(route[:mask]) || '32'
+          result[:network] = "#{route[:network]}/#{cidr}"
+        else
+          result[:network] = route[:network]
+        end
+      end
+
+      result
     end
   end
 end
