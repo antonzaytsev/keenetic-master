@@ -734,9 +734,9 @@ class KeeneticMaster
 
         routes_to_delete.each_slice(batch_size).with_index do |batch, index|
           logger.info("Deleting batch #{index + 1} (#{batch.size} routes)")
-          
+
           delete_result = DeleteRoutes.call(batch)
-          
+
           if delete_result.success?
             total_deleted += batch.size
             logger.info("Successfully deleted batch #{index + 1} (#{batch.size} routes)")
@@ -746,7 +746,7 @@ class KeeneticMaster
             errors << "Batch #{index + 1}: #{error_message}"
             logger.error("Failed to delete batch #{index + 1}: #{error_message}")
           end
-          
+
           # Small delay between batches to avoid overwhelming the router
           sleep(0.1) if index < (routes_to_delete.size / batch_size.to_f).ceil - 1
         end
@@ -834,9 +834,9 @@ class KeeneticMaster
 
         routes_to_delete.each_slice(batch_size).with_index do |batch, index|
           logger.info("Deleting batch #{index + 1} (#{batch.size} routes)")
-          
+
           delete_result = DeleteRoutes.call(batch)
-          
+
           if delete_result.success?
             total_deleted += batch.size
             logger.info("Successfully deleted batch #{index + 1} (#{batch.size} routes)")
@@ -847,7 +847,7 @@ class KeeneticMaster
             logger.error("Failed to delete batch #{index + 1}: #{error_message}")
             # Continue with next batch even if this one failed
           end
-          
+
           # Small delay between batches to avoid overwhelming the router
           sleep(0.1) if index < (routes_to_delete.size / batch_size.to_f).ceil - 1
         end
@@ -1357,7 +1357,7 @@ class KeeneticMaster
       content_type :json
       begin
         route_count = Route.count
-        
+
         if route_count == 0
           return json({
             success: true,
@@ -1372,22 +1372,22 @@ class KeeneticMaster
 
         logger.info("Deleting all #{route_count} routes (generated IP addresses) from database")
         logger.info("Domain groups (#{group_count_before}) and domains (#{domain_count_before}) will remain intact")
-        
+
         # Use dataset.delete for Sequel models - returns number of deleted records
         # This only deletes routes, domain groups and domains are not affected
         deleted_count = Route.dataset.delete
-        
+
         # Verify domain groups and domains are still intact
         group_count_after = DomainGroup.count
         domain_count_after = Domain.count
-        
+
         if group_count_before != group_count_after || domain_count_before != domain_count_after
           logger.error("ERROR: Domain groups or domains were affected! Groups: #{group_count_before} -> #{group_count_after}, Domains: #{domain_count_before} -> #{domain_count_after}")
           raise StandardError, "Domain groups or domains were unexpectedly affected during route deletion"
         end
-        
+
         logger.info("Successfully deleted #{deleted_count} routes from database. Domain groups and domains remain intact.")
-        
+
         json({
           success: true,
           message: "Successfully deleted #{deleted_count} routes (generated IP addresses) from database. Domain groups and domains remain intact.",

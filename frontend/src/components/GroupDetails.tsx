@@ -201,22 +201,8 @@ const GroupDetails: React.FC = () => {
       setRouterRoutesLoading(true);
       setRouterRoutesError(null);
 
-      // Build filter params based on group configuration
-      const params: { interface?: string; group_name?: string } = {
-        group_name: groupName
-      };
-      
-      // Filter by interface if group has one configured
-      if (group.interfaces) {
-        // Handle comma-separated interfaces - use the first one
-        const interfaceIds = group.interfaces.split(',').map(id => id.trim());
-        if (interfaceIds.length > 0) {
-          params.interface = interfaceIds[0];
-        }
-      }
-
       // Load routes directly from router (filtered by group_name on backend)
-      const result = await apiService.getAllRouterRoutes(params);
+      const result = await apiService.getAllRouterRoutes({ group_name: groupName });
 
       if (result.success) {
         setRouterRoutes(result.routes || []);
