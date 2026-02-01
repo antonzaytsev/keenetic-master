@@ -1,14 +1,14 @@
 class KeeneticMaster
   class DownloadStartupConfig < BaseClass
-    PATH = 'ci/startup-config.txt'
-
     def call
-      response = Client.new.get(PATH)
-      return Failure if response.code != 200
-
+      content = Configuration.keenetic_client.system_config.download
+      
       file = Tempfile.new('keenetic-config')
-      file.write(response.body)
+      file.write(content)
       file
+    rescue Keenetic::ApiError => e
+      logger.error("DownloadStartupConfig failed: #{e.message}")
+      Failure(error: e.message)
     end
   end
 end
