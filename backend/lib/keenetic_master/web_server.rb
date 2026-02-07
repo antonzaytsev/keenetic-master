@@ -826,6 +826,14 @@ class KeeneticMaster
     get '/api/router-interfaces' do
       content_type :json
       begin
+        unless KeeneticMaster::Configuration.configured?
+          return json({
+            success: false,
+            interfaces: [],
+            message: "Router not configured. Please configure settings first."
+          })
+        end
+
         logger.info("Getting router interfaces")
         result = KeeneticMaster.interface
 
@@ -856,6 +864,12 @@ class KeeneticMaster
           status 500
           json error: error_message
         end
+      rescue KeeneticMaster::Configuration::NotConfiguredError => e
+        json({
+          success: false,
+          interfaces: [],
+          message: e.message
+        })
       rescue => e
         logger.error("Error getting router interfaces: #{e.message}")
         logger.error(e.backtrace.join("\n"))
@@ -1262,7 +1276,12 @@ class KeeneticMaster
 
     # Health check endpoint
     get '/health' do
-      json status: 'ok', timestamp: Time.now.iso8601
+      configured = KeeneticMaster::Configuration.configured?
+      json({
+        status: 'ok',
+        configured: configured,
+        timestamp: Time.now.iso8601
+      })
     end
 
     # API endpoint to get all settings
@@ -1332,12 +1351,24 @@ class KeeneticMaster
     post '/api/settings/test-connection' do
       content_type :json
       begin
+        unless KeeneticMaster::Configuration.configured?
+          missing = KeeneticMaster::Configuration.missing_settings
+          status 400
+          return json({
+            success: false,
+            message: "Router not configured. Missing settings: #{missing.join(', ')}"
+          })
+        end
+
+        # Reconfigure client with current settings before testing
+        KeeneticMaster::Configuration.reconfigure_keenetic_client!
+        
         # Try to connect to router with current settings
         result = KeeneticMaster.interface
 
         if result.success?
           interfaces_data = result.value!
-          interface_count = interfaces_data.keys.size
+          interface_count = interfaces_data.size
 
           json({
             success: true,
@@ -1352,6 +1383,12 @@ class KeeneticMaster
             message: error_message
           })
         end
+      rescue KeeneticMaster::Configuration::NotConfiguredError => e
+        status 400
+        json({
+          success: false,
+          message: e.message
+        })
       rescue => e
         logger.error("Error testing connection: #{e.message}")
         status 500

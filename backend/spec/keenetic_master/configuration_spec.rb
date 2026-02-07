@@ -107,41 +107,55 @@ RSpec.describe KeeneticMaster::Configuration do
     end
   end
 
-  describe '.validate!' do
-    before { create_test_domains_file }
-
+  describe '.configured?' do
     context 'when all required settings are configured' do
-      it 'does not raise an error' do
-        expect { described_class.validate! }.not_to raise_error
-      end
-
-      it 'creates necessary directories' do
-        described_class.validate!
-        
-        expect(File.directory?('tmp/request-dumps')).to be true
-        expect(File.directory?('config')).to be true
+      it 'returns true' do
+        expect(described_class.configured?).to be true
       end
     end
 
     context 'when required setting is missing' do
       before { Setting.find(key: 'keenetic_login')&.destroy }
 
-      it 'raises ConfigurationError' do
-        expect { described_class.validate! }.to raise_error(
-          KeeneticMaster::Configuration::ConfigurationError,
-          "Required setting 'keenetic_login' is not configured. Set it via the Settings page."
-        )
+      it 'returns false' do
+        expect(described_class.configured?).to be false
+      end
+    end
+  end
+
+  describe '.missing_settings' do
+    context 'when all settings are configured' do
+      it 'returns empty array' do
+        expect(described_class.missing_settings).to be_empty
       end
     end
 
-    context 'when domains file does not exist' do
-      before { ENV['DOMAINS_FILE'] = 'non_existent_file.yml' }
-      after { ENV['DOMAINS_FILE'] = 'spec/fixtures/test_domains.yml' }
+    context 'when some settings are missing' do
+      before do
+        Setting.find(key: 'keenetic_login')&.destroy
+        Setting.find(key: 'keenetic_host')&.destroy
+      end
 
-      it 'raises ConfigurationError' do
-        expect { described_class.validate! }.to raise_error(
-          KeeneticMaster::Configuration::ConfigurationError,
-          'Domains file not found: non_existent_file.yml'
+      it 'returns array of missing setting keys' do
+        expect(described_class.missing_settings).to contain_exactly('keenetic_host', 'keenetic_login')
+      end
+    end
+  end
+
+  describe '.validate_required_settings!' do
+    context 'when all required settings are configured' do
+      it 'does not raise an error' do
+        expect { described_class.validate_required_settings! }.not_to raise_error
+      end
+    end
+
+    context 'when required setting is missing' do
+      before { Setting.find(key: 'keenetic_login')&.destroy }
+
+      it 'raises NotConfiguredError' do
+        expect { described_class.validate_required_settings! }.to raise_error(
+          KeeneticMaster::Configuration::NotConfiguredError,
+          /Router not configured.*keenetic_login/
         )
       end
     end

@@ -3,9 +3,14 @@ require 'keenetic'
 class KeeneticMaster
   module Configuration
     class ConfigurationError < StandardError; end
+    class NotConfiguredError < ConfigurationError; end
+
+    REQUIRED_SETTINGS = %w[keenetic_host keenetic_login keenetic_password].freeze
 
     class << self
       def configure_keenetic_client!
+        validate_required_settings!
+        
         Keenetic.configure do |config|
           config.host = get_setting('keenetic_host')
           config.login = get_setting('keenetic_login')
@@ -25,6 +30,23 @@ class KeeneticMaster
         @keenetic_client ||= begin
           configure_keenetic_client!
           Keenetic.client
+        end
+      end
+
+      def configured?
+        missing_settings.empty?
+      end
+
+      def missing_settings
+        REQUIRED_SETTINGS.select do |key|
+          get_setting(key, required: false).blank?
+        end
+      end
+
+      def validate_required_settings!
+        missing = missing_settings
+        if missing.any?
+          raise NotConfiguredError, "Router not configured. Missing: #{missing.join(', ')}. Configure via Settings page."
         end
       end
 
@@ -56,21 +78,9 @@ class KeeneticMaster
         ENV.fetch('REQUEST_DUMPS_DIR', 'tmp/request-dumps')
       end
 
-      def validate!
-        configure_keenetic_client!
-        
-        # DOMAINS_FILE is now optional since we use database
-        # Only validate it exists if it's explicitly set for migration purposes
-        if ENV['DOMAINS_FILE'] && !File.exist?(domains_file)
-          raise ConfigurationError, "Domains file not found: #{domains_file}"
-        end
-
-        FileUtils.mkdir_p(request_dumps_dir) unless File.directory?(request_dumps_dir)
-      end
-
       private
 
-      def get_setting(key, default: nil, required: true)
+      def get_setting(key, default: nil, required: false)
         db_value = nil
         begin
           db_value = Setting.get(key) if defined?(Setting)
@@ -80,10 +90,6 @@ class KeeneticMaster
         
         return db_value if db_value.present?
         return default if default.present?
-        
-        if required
-          raise ConfigurationError, "Required setting '#{key}' is not configured. Set it via the Settings page."
-        end
         
         nil
       end
