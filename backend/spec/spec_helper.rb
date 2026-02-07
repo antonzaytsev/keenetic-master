@@ -49,11 +49,16 @@ RSpec.configure do |config|
 
   # Set up test environment variables
   config.before(:all) do
-    ENV['KEENETIC_LOGIN'] = 'test_login'
-    ENV['KEENETIC_PASSWORD'] = 'test_password'
-    ENV['KEENETIC_HOST'] = '192.168.1.1'
     ENV['DOMAINS_FILE'] = 'spec/fixtures/test_domains.yml'
     ENV['LOG_LEVEL'] = 'ERROR'
+    
+    # Set up test settings in database
+    if defined?(Setting)
+      Setting.set('keenetic_login', 'test_login')
+      Setting.set('keenetic_password', 'test_password')
+      Setting.set('keenetic_host', '192.168.1.1')
+      Setting.set('keenetic_vpn_interface', 'Wireguard0')
+    end
   end
 end
 

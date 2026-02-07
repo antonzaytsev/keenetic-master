@@ -120,13 +120,8 @@ docker compose exec frontend npm start                # Frontend (hot reload)
 ### Environment Variables (.env)
 
 ```bash
-# Keenetic router credentials (required)
-KEENETIC_LOGIN=admin
-KEENETIC_PASSWORD=your_password
-KEENETIC_HOST=192.168.1.1
-
-# VPN interfaces (comma-separated for multiple)
-KEENETIC_VPN_INTERFACES=Wireguard0,Finland
+# Keenetic router settings (host, login, password, VPN interface)
+# are configured via the Settings page in the web UI and stored in the database.
 
 # Domains configuration
 DOMAINS_FILE=./config/domains.yml

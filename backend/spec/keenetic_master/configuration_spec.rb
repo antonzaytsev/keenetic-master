@@ -3,50 +3,29 @@ require 'spec_helper'
 RSpec.describe KeeneticMaster::Configuration do
   before do
     # Clear any cached configuration
-    described_class.instance_variable_set(:@keenetic_credentials, nil)
+    described_class.instance_variable_set(:@keenetic_client, nil)
+    
+    # Ensure test settings are in database
+    Setting.set('keenetic_login', 'test_login')
+    Setting.set('keenetic_password', 'test_password')
+    Setting.set('keenetic_host', '192.168.1.1')
+    Setting.set('keenetic_vpn_interface', 'Wireguard0')
   end
 
-  describe '.keenetic_credentials' do
-    it 'returns credentials hash with required values' do
-      credentials = described_class.keenetic_credentials
-      
-      expect(credentials).to be_a(Hash)
-      expect(credentials[:login]).to eq('test_login')
-      expect(credentials[:password]).to eq('test_password')
-      expect(credentials[:host]).to eq('192.168.1.1')
-    end
+  describe '.vpn_interface' do
+    context 'when setting is configured in database' do
+      before { Setting.set('keenetic_vpn_interface', 'TestInterface') }
 
-    it 'caches credentials after first call' do
-      expect(ENV).to receive(:fetch).with('KEENETIC_LOGIN').once.and_return('cached_login')
-      expect(ENV).to receive(:fetch).with('KEENETIC_PASSWORD').once.and_return('cached_password')
-      expect(ENV).to receive(:fetch).with('KEENETIC_HOST').once.and_return('cached_host')
-
-      2.times { described_class.keenetic_credentials }
-    end
-  end
-
-  describe '.vpn_interfaces' do
-    context 'when KEENETIC_VPN_INTERFACES is set' do
-      before { ENV['KEENETIC_VPN_INTERFACES'] = 'Interface1,Interface2,Interface3' }
-      after { ENV.delete('KEENETIC_VPN_INTERFACES') }
-
-      it 'returns array of interface names' do
-        expect(described_class.vpn_interfaces).to eq(['Interface1', 'Interface2', 'Interface3'])
+      it 'returns the configured interface' do
+        expect(described_class.vpn_interface).to eq('TestInterface')
       end
     end
 
-    context 'when KEENETIC_VPN_INTERFACE is set' do
-      before { ENV['KEENETIC_VPN_INTERFACE'] = 'SingleInterface' }
-      after { ENV.delete('KEENETIC_VPN_INTERFACE') }
+    context 'when setting is not configured' do
+      before { Setting.find(key: 'keenetic_vpn_interface')&.destroy }
 
-      it 'returns array with single interface' do
-        expect(described_class.vpn_interfaces).to eq(['SingleInterface'])
-      end
-    end
-
-    context 'when no interface environment variables are set' do
       it 'returns default Wireguard0' do
-        expect(described_class.vpn_interfaces).to eq(['Wireguard0'])
+        expect(described_class.vpn_interface).to eq('Wireguard0')
       end
     end
   end
@@ -131,7 +110,7 @@ RSpec.describe KeeneticMaster::Configuration do
   describe '.validate!' do
     before { create_test_domains_file }
 
-    context 'when all required environment variables are set' do
+    context 'when all required settings are configured' do
       it 'does not raise an error' do
         expect { described_class.validate! }.not_to raise_error
       end
@@ -144,14 +123,13 @@ RSpec.describe KeeneticMaster::Configuration do
       end
     end
 
-    context 'when required environment variable is missing' do
-      before { ENV.delete('KEENETIC_LOGIN') }
-      after { ENV['KEENETIC_LOGIN'] = 'test_login' }
+    context 'when required setting is missing' do
+      before { Setting.find(key: 'keenetic_login')&.destroy }
 
       it 'raises ConfigurationError' do
         expect { described_class.validate! }.to raise_error(
           KeeneticMaster::Configuration::ConfigurationError,
-          'Required environment variable KEENETIC_LOGIN is not set'
+          "Required setting 'keenetic_login' is not configured. Set it via the Settings page."
         )
       end
     end
@@ -168,4 +146,4 @@ RSpec.describe KeeneticMaster::Configuration do
       end
     end
   end
-end 
+end
