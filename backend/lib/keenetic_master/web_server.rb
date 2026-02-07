@@ -15,7 +15,7 @@ require_relative 'update_domain_routes'
 require_relative 'update_routes_database'
 require_relative 'get_group_router_routes'
 require_relative 'get_all_routes'
-require_relative 'database_router_sync'
+require_relative 'router_routes_manager'
 require_relative 'delete_routes'
 require_relative 'apply_route_changes'
 require_relative 'correct_interface'
@@ -94,10 +94,10 @@ class KeeneticMaster
 
         # Get all routes for this group from router
         router_routes_result = GetAllRoutes.new.call
-        
+
         if router_routes_result.success?
           router_routes = router_routes_result.value!
-          
+
           # Filter routes that belong to this group by comment pattern
           comment_pattern = /\[auto:#{Regexp.escape(name)}\]/
           group_routes = router_routes.select do |route|
@@ -115,7 +115,7 @@ class KeeneticMaster
                 comment: r[:comment]
               }
             end
-            
+
             delete_result = DeleteRoutes.call(routes_to_delete)
 
             if delete_result.success?
@@ -158,7 +158,7 @@ class KeeneticMaster
 
         result = domain_groups.map do |group|
           domains_hash = group.to_hash
-          
+
           # Count routes for this group from router
           comment_pattern = /\[auto:#{Regexp.escape(group.name)}\]/
           group_router_routes = router_routes.select do |route|
@@ -559,6 +559,46 @@ class KeeneticMaster
       end
     end
 
+    # API endpoint to push (generate and upload) routes for a specific group to router
+    post '/api/domains/:name/push-routes' do
+      content_type :json
+      begin
+        group_name = params[:name]
+        group = DomainGroup.find(name: group_name)
+
+        unless group
+          status 404
+          return json error: "Domain group not found"
+        end
+
+        logger.info("Pushing routes for group '#{group_name}' to router")
+
+        manager = RouterRoutesManager.new
+        result = manager.push_group_routes!(group)
+
+        if result.success?
+          data = result.value!
+          logger.info("Successfully pushed routes for group '#{group_name}': added #{data[:added]}, deleted #{data[:deleted]}")
+          json({
+            success: true,
+            message: "Routes pushed successfully for group '#{group_name}'",
+            added: data[:added],
+            deleted: data[:deleted]
+          })
+        else
+          error_message = result.failure.to_s
+          logger.error("Failed to push routes for group '#{group_name}': #{error_message}")
+          status 500
+          json error: error_message
+        end
+      rescue => e
+        logger.error("Error pushing routes for group '#{params[:name]}': #{e.message}")
+        logger.error(e.backtrace.join("\n"))
+        status 500
+        json(error: e.message, backtrace: e.backtrace)
+      end
+    end
+
     # API endpoint to delete all routes for a specific group from router
     delete '/api/router-routes/auto/:group_name' do
       content_type :json
@@ -820,7 +860,7 @@ class KeeneticMaster
         logger.error(e.backtrace.join("\n"))
 
         status 500
-        json error: e.message
+        json(error: e.message, backtrace: e.backtrace)
       end
     end
 

@@ -32,6 +32,7 @@ const GroupDetails: React.FC = () => {
   const [loadingInterfaces, setLoadingInterfaces] = useState(false);
   const [showDeleteRoutesModal, setShowDeleteRoutesModal] = useState(false);
   const [deletingRoutes, setDeletingRoutes] = useState(false);
+  const [pushingRoutes, setPushingRoutes] = useState(false);
 
   useEffect(() => {
     const loadGroupDetails = async () => {
@@ -449,6 +450,26 @@ const GroupDetails: React.FC = () => {
       showNotification('error', `Failed to delete group routes: ${errorMessage}`);
     } finally {
       setDeletingRoutes(false);
+    }
+  };
+
+  const handlePushRoutes = async () => {
+    if (!groupName) return;
+
+    setPushingRoutes(true);
+
+    try {
+      const result = await apiService.pushGroupRoutes(groupName);
+      const message = result.message || `Routes pushed: ${result.added || 0} added, ${result.deleted || 0} deleted`;
+      showNotification('success', message);
+      await loadRouterRoutes();
+    } catch (err: any) {
+      console.error('Error pushing routes:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      setError(`Failed to push routes: ${errorMessage}`);
+      showNotification('error', `Failed to push routes: ${errorMessage}`);
+    } finally {
+      setPushingRoutes(false);
     }
   };
 
@@ -907,10 +928,29 @@ const GroupDetails: React.FC = () => {
                 </h6>
                 <div>
                   <Button
+                    variant="success"
+                    size="sm"
+                    onClick={handlePushRoutes}
+                    disabled={routerRoutesLoading || pushingRoutes || deletingRoutes}
+                    className="me-2"
+                  >
+                    {pushingRoutes ? (
+                      <>
+                        <div className="loading-spinner me-1"></div>
+                        Pushing...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-upload me-1"></i>
+                        Push Routes
+                      </>
+                    )}
+                  </Button>
+                  <Button
                     variant="outline-danger"
                     size="sm"
                     onClick={() => setShowDeleteRoutesModal(true)}
-                    disabled={routerRoutesLoading || deletingRoutes || routerRoutes.length === 0}
+                    disabled={routerRoutesLoading || deletingRoutes || pushingRoutes || routerRoutes.length === 0}
                     className="me-2"
                   >
                     {deletingRoutes ? (
@@ -929,7 +969,7 @@ const GroupDetails: React.FC = () => {
                     variant="outline-secondary"
                     size="sm"
                     onClick={loadRouterRoutes}
-                    disabled={routerRoutesLoading}
+                    disabled={routerRoutesLoading || pushingRoutes}
                   >
                     {routerRoutesLoading ? (
                       <>

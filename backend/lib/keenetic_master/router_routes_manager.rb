@@ -10,20 +10,20 @@ require 'typhoeus'
 require 'set'
 
 class KeeneticMaster
-  class DatabaseRouterSync < BaseClass
+  class RouterRoutesManager < BaseClass
     def initialize
       super
       @logger = logger
     end
 
-    # Sync routes for a specific group: generate routes from domains and sync to router
-    def sync_group_to_router!(group)
-      @logger.info("Starting sync for group '#{group.name}' - generating routes and syncing to router")
+    # Push routes for a specific group: generate routes from domains and push to router
+    def push_group_routes!(group)
+      @logger.info("Pushing routes for group '#{group.name}' to router")
 
       # Generate fresh routes from current domains
       fresh_routes = generate_routes_for_group(group)
       
-      # Get all routes from router
+      # Pull all routes from router
       router_routes_result = GetAllRoutes.new.call
       return router_routes_result if router_routes_result.failure?
 
@@ -123,13 +123,13 @@ class KeeneticMaster
         end
       end
 
-      @logger.info("Sync completed for group '#{group.name}': added #{added_count}, deleted #{deleted_count}")
+      @logger.info("Push completed for group '#{group.name}': added #{added_count}, deleted #{deleted_count}")
       Success(added: added_count, deleted: deleted_count)
     end
 
-    # Full sync for all groups
-    def full_sync!
-      @logger.info("Starting full sync for all groups")
+    # Push routes for all groups
+    def push_all_routes!
+      @logger.info("Pushing routes for all groups to router")
 
       results = {
         groups_processed: 0,
@@ -140,7 +140,7 @@ class KeeneticMaster
 
       DomainGroup.all.each do |group|
         begin
-          result = sync_group_to_router!(group)
+          result = push_group_routes!(group)
           
           if result.success?
             data = result.value!
@@ -151,12 +151,12 @@ class KeeneticMaster
             results[:errors] << "#{group.name}: #{result.failure}"
           end
         rescue => e
-          @logger.error("Failed to sync group '#{group.name}': #{e.message}")
+          @logger.error("Failed to push routes for group '#{group.name}': #{e.message}")
           results[:errors] << "#{group.name}: #{e.message}"
         end
       end
 
-      @logger.info("Full sync completed: #{results}")
+      @logger.info("Push all completed: #{results}")
       Success(results)
     end
 
@@ -231,8 +231,8 @@ class KeeneticMaster
       end
     end
 
-    # Get routes for a specific group from router
-    def get_group_routes(group)
+    # Pull routes for a specific group from router
+    def pull_group_routes(group)
       router_routes_result = GetAllRoutes.new.call
       return router_routes_result if router_routes_result.failure?
 

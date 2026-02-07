@@ -221,6 +221,11 @@ export const apiService = {
     const response = await api.delete(`/api/router-routes/auto/${encodeURIComponent(groupName)}`);
     return response.data;
   },
+
+  pushGroupRoutes: async (groupName: string): Promise<any> => {
+    const response = await api.post(`/api/domains/${encodeURIComponent(groupName)}/push-routes`);
+    return response.data;
+  },
 };
 
 export default apiService;

@@ -155,4 +155,4 @@ ruby cmd/database_manager.rb sync
 ### Adding New Features
 - Use Sequel models in `lib/models.rb`
 - Database connection via `Database.connection`
-- Sync operations via `DatabaseRouterSync`
+- Route operations via `RouterRoutesManager`

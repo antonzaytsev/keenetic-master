@@ -4,7 +4,7 @@ require_relative '../config/application'
 require_relative '../lib/database'
 require_relative '../lib/models'
 require_relative '../lib/migrate_yaml_to_db'
-require_relative '../lib/keenetic_master/database_router_sync'
+require_relative '../lib/keenetic_master/router_routes_manager'
 require 'optparse'
 
 def show_help
@@ -16,7 +16,7 @@ def show_help
       migrate         Migrate YAML data to database
       rollback        Clear all database data
       verify          Verify migration integrity
-      sync            Sync database with router
+      push            Push routes from database to router
       status          Show database status
       convert-regular-to-dns  Convert all regular domains to DNS monitoring type
       
@@ -27,7 +27,7 @@ def show_help
     Examples:
       ruby cmd/database_manager.rb setup
       ruby cmd/database_manager.rb migrate -f config/domains.yml
-      ruby cmd/database_manager.rb sync
+      ruby cmd/database_manager.rb push
       ruby cmd/database_manager.rb convert-regular-to-dns
   HELP
 end
@@ -83,20 +83,20 @@ def verify_migration(migrator = nil)
   end
 end
 
-def sync_database
-  puts "Starting database-router sync..."
+def push_routes
+  puts "Pushing routes to router..."
   
-  sync_service = KeeneticMaster::DatabaseRouterSync.new
-  result = sync_service.full_sync!
+  routes_manager = KeeneticMaster::RouterRoutesManager.new
+  result = routes_manager.push_all_routes!
   
   if result.success?
     stats = result.value!
-    puts "✅ Sync completed successfully:"
+    puts "✅ Push completed successfully:"
     puts "  - Groups processed: #{stats[:groups_processed]}"
     puts "  - Routes added: #{stats[:total_added]}"
     puts "  - Routes deleted: #{stats[:total_deleted]}"
   else
-    puts "❌ Sync failed: #{result.failure}"
+    puts "❌ Push failed: #{result.failure}"
     exit(1)
   end
 end
@@ -200,8 +200,8 @@ when 'rollback'
   rollback_database
 when 'verify'
   verify_migration
-when 'sync'
-  sync_database
+when 'push'
+  push_routes
 when 'status'
   show_status
 when 'convert-regular-to-dns'
