@@ -188,7 +188,7 @@ class KeeneticMaster
     end
 
     def determine_interfaces(interface_override)
-      interfaces = interface_override&.strip || Configuration.vpn_interfaces.join(',')
+      interfaces = interface_override&.strip || Configuration.vpn_interface
 
       if interfaces.blank?
         logger.info "Используется дефолтный интерфейс для VPN: 'Wireguard0'"

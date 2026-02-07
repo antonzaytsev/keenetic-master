@@ -7,12 +7,18 @@ class KeeneticMaster
     class << self
       def configure_keenetic_client!
         Keenetic.configure do |config|
-          config.host = required_env('KEENETIC_HOST')
-          config.login = required_env('KEENETIC_LOGIN')
-          config.password = required_env('KEENETIC_PASSWORD')
+          config.host = get_setting('keenetic_host')
+          config.login = get_setting('keenetic_login')
+          config.password = get_setting('keenetic_password')
           config.timeout = 30
           config.logger = Logger.new($stdout) if ENV['DEBUG']
         end
+      end
+
+      def reconfigure_keenetic_client!
+        @keenetic_client = nil
+        configure_keenetic_client!
+        @keenetic_client = Keenetic.client
       end
 
       def keenetic_client
@@ -22,9 +28,8 @@ class KeeneticMaster
         end
       end
 
-      def vpn_interfaces
-        interfaces = ENV['KEENETIC_VPN_INTERFACE'] || ENV['KEENETIC_VPN_INTERFACES'] || 'Wireguard0'
-        interfaces.split(',').map(&:strip)
+      def vpn_interface
+        get_setting('keenetic_vpn_interface', default: 'Wireguard0')
       end
 
       def domains_file
@@ -65,11 +70,23 @@ class KeeneticMaster
 
       private
 
-      def required_env(key)
-        ENV.fetch(key) do
-          raise ConfigurationError, "Required environment variable #{key} is not set"
+      def get_setting(key, default: nil, required: true)
+        db_value = nil
+        begin
+          db_value = Setting.get(key) if defined?(Setting)
+        rescue => e
+          # Database might not be available yet during initial setup
         end
+        
+        return db_value if db_value.present?
+        return default if default.present?
+        
+        if required
+          raise ConfigurationError, "Required setting '#{key}' is not configured. Set it via the Settings page."
+        end
+        
+        nil
       end
     end
   end
-end 
+end

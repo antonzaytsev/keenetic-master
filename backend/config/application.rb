@@ -59,9 +59,23 @@ def reload!(print = true)
   ApplicationLoader.reload!(print)
 end
 
-def verify_env_set
-  raise "ENV variable KEENETIC_LOGIN is not set" if ENV['KEENETIC_LOGIN'].blank?
-  raise "ENV variable KEENETIC_PASSWORD is not set" if ENV['KEENETIC_PASSWORD'].blank?
-  raise "ENV variable KEENETIC_HOST is not set" if ENV['KEENETIC_HOST'].blank?
+def verify_settings_configured
+  missing_settings = []
+  
+  %w[keenetic_login keenetic_password keenetic_host].each do |key|
+    db_value = nil
+    begin
+      db_value = Setting.get(key) if defined?(Setting)
+    rescue
+      # Database might not be ready
+    end
+    
+    missing_settings << key unless db_value.present?
+  end
+  
+  if missing_settings.any?
+    puts "Warning: The following settings are not configured: #{missing_settings.join(', ')}"
+    puts "Configure them via the Settings page in the web UI."
+  end
 end
-verify_env_set
+verify_settings_configured

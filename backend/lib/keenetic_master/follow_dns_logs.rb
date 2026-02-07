@@ -221,7 +221,7 @@ class KeeneticMaster
         follow_dns_domains = group.domains_dataset.where(type: 'follow_dns').map(:domain)
         next if follow_dns_domains.empty?
 
-        interfaces = group.interfaces_list.presence || ENV['KEENETIC_VPN_INTERFACES']&.split(',')&.map(&:strip) || ['Wireguard0']
+        interfaces = group.interfaces_list.presence || [Configuration.vpn_interface]
 
         websites[group.name] = {
           domains: follow_dns_domains,

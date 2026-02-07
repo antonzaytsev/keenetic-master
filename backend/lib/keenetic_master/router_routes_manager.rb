@@ -250,7 +250,7 @@ class KeeneticMaster
     private
 
     def generate_routes_for_group(group)
-      interface_string = group.interfaces || ENV['KEENETIC_VPN_INTERFACES'] || 'Wireguard0'
+      interface_string = group.interfaces || Configuration.vpn_interface
       interfaces = interface_string.split(',').map(&:strip)
       
       dns_domains = group.domains_dataset.where(type: 'follow_dns').all

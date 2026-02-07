@@ -52,7 +52,7 @@ class KeeneticMaster
       return [] unless group
 
       domain_mask = group.mask || ENV.fetch('DOMAINS_MASK', '32').to_s
-      interface = group.interfaces || interface.presence || ENV['KEENETIC_VPN_INTERFACE'] || ENV['KEENETIC_VPN_INTERFACES']
+      interface = group.interfaces || interface.presence || Configuration.vpn_interface
 
       # Regular domains are no longer supported - only DNS monitored domains
       domains = group.domains_dataset.where(type: 'follow_dns').map(:domain)
