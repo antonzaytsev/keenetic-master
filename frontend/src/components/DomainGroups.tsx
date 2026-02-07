@@ -16,6 +16,7 @@ const DomainGroups: React.FC = () => {
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
   const [showDeleteAutoModal, setShowDeleteAutoModal] = useState(false);
   const [deletingAutoRoutes, setDeletingAutoRoutes] = useState(false);
+  const [routerInterfaces, setRouterInterfaces] = useState<Array<{ id: string; description: string; name: string }>>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTermRef = useRef<string>('');
 
@@ -39,8 +40,31 @@ const DomainGroups: React.FC = () => {
     searchTermRef.current = searchTerm;
   }, [searchTerm]);
 
+  const loadRouterInterfaces = useCallback(async () => {
+    try {
+      const result = await apiService.getRouterInterfaces();
+      if (result.success && result.interfaces) {
+        setRouterInterfaces(result.interfaces);
+      }
+    } catch (err) {
+      console.error('Failed to load router interfaces:', err);
+    }
+  }, []);
+
+  const getInterfaceDisplayName = useCallback((interfaceId: string): string => {
+    const interfaceIds = interfaceId.split(',').map(id => id.trim());
+    const displayNames = interfaceIds.map(id => {
+      const interfaceData = routerInterfaces.find(iface => iface.id === id);
+      return interfaceData 
+        ? (interfaceData.description || interfaceData.name || interfaceData.id)
+        : id;
+    });
+    return displayNames.join(', ');
+  }, [routerInterfaces]);
+
   useEffect(() => {
     loadDomainGroups();
+    loadRouterInterfaces();
 
     // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
@@ -50,7 +74,7 @@ const DomainGroups: React.FC = () => {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [loadDomainGroups]);
+  }, [loadDomainGroups, loadRouterInterfaces]);
 
   const getAllDomainsFromGroup = useCallback((group: DomainGroup): string[] => {
     const domains: string[] = [];
@@ -308,7 +332,7 @@ const DomainGroups: React.FC = () => {
                           </td>
                           <td>
                             {group.interfaces ? (
-                              <Badge bg="info">{group.interfaces}</Badge>
+                              <Badge bg="info">{getInterfaceDisplayName(group.interfaces)}</Badge>
                             ) : (
                               <span className="text-muted">-</span>
                             )}
