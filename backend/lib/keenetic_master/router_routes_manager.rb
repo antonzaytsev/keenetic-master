@@ -22,19 +22,19 @@ class KeeneticMaster
 
       # Generate fresh routes from current domains
       fresh_routes = generate_routes_for_group(group)
-      
+
       # Pull all routes from router
       router_routes_result = GetAllRoutes.new.call
       return router_routes_result if router_routes_result.failure?
 
       all_router_routes = router_routes_result.value!
-      
+
       # Helper to normalize interface name for comparison
       normalize_interface = lambda do |interface|
         return nil unless interface
         CorrectInterface.call(interface.to_s)
       end
-      
+
       # Get fresh routes network addresses (with normalized interfaces)
       fresh_routes_set = fresh_routes.map do |r|
         normalized_interface = normalize_interface.call(r[:interface])
@@ -70,7 +70,7 @@ class KeeneticMaster
 
       if routes_to_delete.any?
         @logger.info("Preparing to delete #{routes_to_delete.size} routes from router for group '#{group.name}'")
-        
+
         delete_data = routes_to_delete.map do |r|
           route_data = {
             network: r[:network] || r[:dest],
@@ -141,7 +141,7 @@ class KeeneticMaster
       DomainGroup.all.each do |group|
         begin
           result = push_group_routes!(group)
-          
+
           if result.success?
             data = result.value!
             results[:groups_processed] += 1
@@ -168,10 +168,10 @@ class KeeneticMaster
       return router_routes_result if router_routes_result.failure?
 
       router_routes = router_routes_result.value!
-      
+
       # Find auto-generated routes
       auto_routes = router_routes.select { |route| route[:comment]&.start_with?('[auto:') }
-      
+
       # Group routes by their group name from comment
       routes_by_group = {}
       auto_routes.each do |route|
@@ -183,10 +183,10 @@ class KeeneticMaster
       end
 
       obsolete_routes = []
-      
+
       routes_by_group.each do |group_name, routes|
         group = DomainGroup.find(name: group_name)
-        
+
         if group.nil?
           # Group no longer exists, all its routes are obsolete
           obsolete_routes.concat(routes)
@@ -194,12 +194,12 @@ class KeeneticMaster
           # Check if routes are still needed based on current domains
           fresh_routes = generate_routes_for_group(group)
           fresh_routes_set = fresh_routes.map { |r| [r[:network], r[:mask], CorrectInterface.call(r[:interface])] }.to_set
-          
+
           routes.each do |route|
             network = route[:network] || route[:dest]
             mask = route[:mask] || route[:genmask] || '255.255.255.255'
             interface = CorrectInterface.call(route[:interface] || route[:iface])
-            
+
             unless fresh_routes_set.include?([network, mask, interface])
               obsolete_routes << route
             end
@@ -218,7 +218,7 @@ class KeeneticMaster
           comment: r[:comment]
         }
       end
-      
+
       delete_result = DeleteRoutes.call(routes_to_delete)
 
       if delete_result.success?
@@ -237,7 +237,7 @@ class KeeneticMaster
       return router_routes_result if router_routes_result.failure?
 
       router_routes = router_routes_result.value!
-      
+
       # Filter routes that belong to this group by comment pattern
       group_routes = router_routes.select do |route|
         comment = route[:comment] || ''
@@ -252,12 +252,12 @@ class KeeneticMaster
     def generate_routes_for_group(group)
       interface_string = group.interfaces || Configuration.vpn_interface
       interfaces = interface_string.split(',').map(&:strip)
-      
+
       dns_domains = group.domains_dataset.where(type: 'follow_dns').all
-      
+
       routes = []
       seen_routes = Set.new
-      
+
       dns_domains.each do |domain|
         domain_routes = resolve_domain_to_routes(domain.domain, group, interfaces)
         domain_routes.each do |route|
@@ -268,7 +268,7 @@ class KeeneticMaster
           end
         end
       end
-      
+
       @logger.info("Generated #{routes.size} routes for group '#{group.name}'")
       routes
     end
@@ -277,7 +277,7 @@ class KeeneticMaster
       routes = []
       domain_mask = group.mask || ENV.fetch('DOMAINS_MASK', '32').to_s
       seen_routes = Set.new
-      
+
       if domain_string =~ /^\d+\.\d+\.\d+\.\d+(?:\/\d+)?$/ || domain_string =~ /^\d+\.\d+\.\d+\.\d+$/
         # IP address or CIDR
         if domain_string.include?('/')
@@ -287,12 +287,12 @@ class KeeneticMaster
           network = domain_string
           mask = Constants::MASKS['32']
         end
-        
+
         interfaces.each do |interface|
           route_key = [network, mask, interface]
           next if seen_routes.include?(route_key)
           seen_routes.add(route_key)
-          
+
           routes << {
             network: network,
             mask: mask,
@@ -304,24 +304,24 @@ class KeeneticMaster
         # Domain name - perform DNS resolution
         begin
           dns_servers = ENV.fetch('DNS_SERVERS', nil)&.split(',') || ['1.1.1.1', '8.8.8.8']
-          
+
           dns_servers.each do |nameserver|
             begin
               resolver = Resolv::DNS.new(nameserver: nameserver)
               ips = resolver.getaddresses(domain_string)
-              
+
               unique_ips = ips.select { |ip| ip.is_a?(Resolv::IPv4) }.uniq
-              
+
               unique_ips.each do |ip|
                 ip_str = ip.to_s
                 network = ip_str.sub(/\.\d+$/, '.0')
                 mask = Constants::MASKS[domain_mask.to_s]
-                
+
                 interfaces.each do |interface|
                   route_key = [network, mask, interface]
                   next if seen_routes.include?(route_key)
                   seen_routes.add(route_key)
-                  
+
                   routes << {
                     network: network,
                     mask: mask,

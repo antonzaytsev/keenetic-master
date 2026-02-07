@@ -1024,35 +1024,51 @@ const GroupDetails: React.FC = () => {
                       <tr>
                         <th>Network</th>
                         <th>Mask</th>
-                        <th>Interface</th>
+                        <th>Interface ID</th>
+                        <th>Interface Name</th>
                         <th>Comment</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {routerRoutes.map((route: any, index: number) => (
-                        <tr key={index}>
-                          <td>
-                            <code className="text-primary">{route.network || '-'}</code>
-                          </td>
-                          <td>
-                            <code className="text-muted">{route.mask || '-'}</code>
-                          </td>
-                          <td>
-                            {route.interface ? (
-                              <Badge bg="info">{route.interface}</Badge>
-                            ) : (
-                              <span className="text-muted">-</span>
-                            )}
-                          </td>
-                          <td>
-                            {route.comment ? (
-                              <small className="text-muted">{route.comment}</small>
-                            ) : (
-                              <span className="text-muted">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {routerRoutes.map((route: any, index: number) => {
+                        const interfaceData = route.interface 
+                          ? routerInterfaces.find(iface => iface.id === route.interface)
+                          : null;
+                        const interfaceName = interfaceData 
+                          ? (interfaceData.description || interfaceData.name || interfaceData.id)
+                          : route.interface || '-';
+                        return (
+                          <tr key={index}>
+                            <td>
+                              <code className="text-primary">{route.network || '-'}</code>
+                            </td>
+                            <td>
+                              <code className="text-muted">{route.mask || '-'}</code>
+                            </td>
+                            <td>
+                              {route.interface ? (
+                                <Badge bg="info">{route.interface}</Badge>
+                              ) : (
+                                <span className="text-muted">-</span>
+                              )}
+                            </td>
+                            <td>
+                              {route.interface ? (
+                                <Badge bg="info">{interfaceName}</Badge>
+                              ) : (
+                                <span className="text-muted">-</span>
+                              )}
+                            </td>
+                            <td>
+                              {route.comment ? (
+                                <small className="text-muted">{route.comment}</small>
+                              ) : (
+                                <span className="text-muted">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </Table>
                 </div>

@@ -12,7 +12,13 @@ interface RouterRoute {
   table?: string;
   dev?: string;
   src?: string;
-  description?: string;
+  comment?: string;
+}
+
+interface RouterInterface {
+  id: string;
+  description: string;
+  name: string;
 }
 
 const RouterRoutes: React.FC = () => {
@@ -20,6 +26,7 @@ const RouterRoutes: React.FC = () => {
   const [filteredRoutes, setFilteredRoutes] = useState<RouterRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [routerInterfaces, setRouterInterfaces] = useState<RouterInterface[]>([]);
   
   // Filter states
   const [networkSearch, setNetworkSearch] = useState('');
@@ -27,6 +34,24 @@ const RouterRoutes: React.FC = () => {
   
   // Available filter options
   const [availableInterfaces, setAvailableInterfaces] = useState<string[]>([]);
+
+  const getInterfaceDisplayName = useCallback((interfaceId: string): string => {
+    const interfaceData = routerInterfaces.find(iface => iface.id === interfaceId);
+    return interfaceData 
+      ? (interfaceData.description || interfaceData.name || interfaceData.id)
+      : interfaceId;
+  }, [routerInterfaces]);
+
+  const loadRouterInterfaces = useCallback(async () => {
+    try {
+      const result = await apiService.getRouterInterfaces();
+      if (result.success) {
+        setRouterInterfaces(result.interfaces);
+      }
+    } catch (err) {
+      console.error('Failed to load router interfaces:', err);
+    }
+  }, []);
 
   const loadRouterRoutes = useCallback(async () => {
     try {
@@ -65,6 +90,7 @@ const RouterRoutes: React.FC = () => {
 
   useEffect(() => {
     loadRouterRoutes();
+    loadRouterInterfaces();
     
     // Auto-refresh every 60 seconds (router data changes less frequently)
     const interval = setInterval(() => {
@@ -74,7 +100,7 @@ const RouterRoutes: React.FC = () => {
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [loadRouterRoutes, networkSearch, interfaceFilter]);
+  }, [loadRouterRoutes, loadRouterInterfaces, networkSearch, interfaceFilter]);
 
   useEffect(() => {
     let filtered = routes;
@@ -223,9 +249,9 @@ const RouterRoutes: React.FC = () => {
                       <tr>
                         <th>Network</th>
                         <th>Mask</th>
-                        <th>Interface</th>
-                        <th>Gateway</th>
-                        <th>Description</th>
+                        <th>Interface ID</th>
+                        <th>Interface Name</th>
+                        <th>Comment</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -254,14 +280,18 @@ const RouterRoutes: React.FC = () => {
                               )}
                             </td>
                             <td>
-                              {route.gateway ? (
-                                <code className="text-secondary">{route.gateway}</code>
+                              {route.interface ? (
+                                <Badge bg="info">{getInterfaceDisplayName(route.interface)}</Badge>
                               ) : (
                                 <span className="text-muted">-</span>
                               )}
                             </td>
                             <td>
-                              <span className="text-muted">{route.description || '-'}</span>
+                              {route.comment ? (
+                                <small className="text-muted">{route.comment}</small>
+                              ) : (
+                                <span className="text-muted">-</span>
+                              )}
                             </td>
                           </tr>
                         ))
