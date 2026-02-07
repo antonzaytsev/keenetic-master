@@ -3,7 +3,7 @@ source "https://rubygems.org"
 ruby "~> 3.0"
 
 # Core functionality
-gem "keenetic", "~> 0.2"
+gem "keenetic", "~> 1.0"
 gem "watir", "~> 7.0"
 gem "dnsruby", "~> 1.70"
 gem "activesupport", ">= 7.0"
