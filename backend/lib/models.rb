@@ -103,6 +103,52 @@ class Domain < Sequel::Model(:domains)
   end
 end
 
+# Setting model for application configuration
+class Setting < Sequel::Model(:settings)
+  KEENETIC_SETTINGS = %w[
+    keenetic_login
+    keenetic_password
+    keenetic_host
+    keenetic_vpn_interface
+  ].freeze
+
+  SETTING_DESCRIPTIONS = {
+    'keenetic_login' => 'Keenetic router login username',
+    'keenetic_password' => 'Keenetic router login password',
+    'keenetic_host' => 'Keenetic router host address (e.g., 192.168.1.1)',
+    'keenetic_vpn_interface' => 'Default VPN interface for routing (e.g., Wireguard0)'
+  }.freeze
+
+  def before_update
+    self.updated_at = Time.now
+    super
+  end
+
+  def self.get(key)
+    setting = find(key: key.to_s)
+    setting&.value
+  end
+
+  def self.set(key, value, description: nil)
+    setting = find_or_create(key: key.to_s)
+    setting.update(value: value.to_s)
+    setting.update(description: description) if description
+    setting
+  end
+
+  def self.get_all_keenetic_settings
+    KEENETIC_SETTINGS.each_with_object({}) do |key, hash|
+      setting = find(key: key)
+      hash[key] = {
+        value: setting&.value,
+        description: SETTING_DESCRIPTIONS[key],
+        updated_at: setting&.updated_at&.iso8601
+      }
+    end
+  end
+
+end
+
 # DNS Processing log model for tracking DNS log processing events
 class DnsProcessingLog < Sequel::Model(:dns_processing_log)
   def self.log_processing_event(action:, domain:, group_name:, routes_count: 0, network: nil, mask: nil, interface: nil, comment: nil, ip_addresses: nil)

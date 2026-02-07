@@ -42,6 +42,7 @@ class Database
       create_domain_groups_table unless @db.tables.include?(:domain_groups)
       create_domains_table unless @db.tables.include?(:domains)
       create_dns_processing_log_table unless @db.tables.include?(:dns_processing_log)
+      create_settings_table unless @db.tables.include?(:settings)
       
       # Drop routes and sync_log tables if they exist (no longer needed - routes stored on Keenetic)
       @db.drop_table(:routes) if @db.tables.include?(:routes)
@@ -100,6 +101,22 @@ class Database
     rescue => e
       # Log error but don't crash if table already exists
       puts "Warning: Could not create dns_processing_log table: #{e.message}"
+      raise e unless e.message.include?('already exists')
+    end
+
+    def create_settings_table
+      @db.create_table :settings do
+        primary_key :id
+        String :key, unique: true, null: false
+        String :value, text: true
+        String :description
+        DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
+        DateTime :updated_at, default: Sequel::CURRENT_TIMESTAMP
+        
+        index :key
+      end
+    rescue => e
+      puts "Warning: Could not create settings table: #{e.message}"
       raise e unless e.message.include?('already exists')
     end
 
