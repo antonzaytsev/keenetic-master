@@ -299,13 +299,44 @@ class KeeneticMaster
         end
 
         # Update interfaces if provided
+        interface_changed = false
         if request_body.key?('interfaces')
           interfaces_value = request_body['interfaces']
           interfaces_value = nil if interfaces_value.is_a?(String) && interfaces_value.strip.empty?
-          group.update(interfaces: interfaces_value)
+          old_interfaces = group.interfaces
+          if old_interfaces != interfaces_value
+            group.update(interfaces: interfaces_value)
+            interface_changed = true
+            logger.info("Domain group #{group_id} interface changed from '#{old_interfaces}' to '#{interfaces_value}'")
+          end
         end
 
-        json success: true, message: "Domain group updated successfully"
+        # If interface changed, push routes to router to update them with new interface
+        push_result = nil
+        if interface_changed
+          begin
+            manager = RouterRoutesManager.new
+            push_result = manager.push_group_routes!(group)
+            if push_result.success?
+              logger.info("Routes updated in router for group '#{group.name}' after interface change")
+            else
+              logger.warn("Failed to update routes in router: #{push_result.failure}")
+            end
+          rescue => e
+            logger.error("Error pushing routes after interface change: #{e.message}")
+          end
+        end
+
+        response_data = { success: true, message: "Domain group updated successfully" }
+        if interface_changed && push_result
+          if push_result.success?
+            response_data[:routes_updated] = push_result.value!
+          else
+            response_data[:routes_warning] = "Interface updated but failed to sync routes: #{push_result.failure}"
+          end
+        end
+
+        json response_data
       rescue JSON::ParserError
         status 400
         json error: "Invalid JSON format"

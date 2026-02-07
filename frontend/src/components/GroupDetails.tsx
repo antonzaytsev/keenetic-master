@@ -292,12 +292,22 @@ const GroupDetails: React.FC = () => {
       setUpdatingConfig(true);
       setError(null);
 
-      await apiService.updateDomainGroupById(group.id, {
+      const response = await apiService.updateDomainGroupById(group.id, {
         mask: maskValue.trim() || '',
         interfaces: interfacesValue.trim() || ''
       });
       
-      showNotification('success', 'Configuration updated successfully!');
+      // Show appropriate notification based on whether routes were updated
+      if (response.routes_updated) {
+        const { added, deleted } = response.routes_updated;
+        showNotification('success', `Configuration updated! Routes synced: ${added} added, ${deleted} deleted`);
+        // Reload router routes since they were updated
+        loadRouterRoutes();
+      } else if (response.routes_warning) {
+        showNotification('warning', response.routes_warning);
+      } else {
+        showNotification('success', 'Configuration updated successfully!');
+      }
       
       // Reload group data
       const updatedGroups = await apiService.getDomainGroups();

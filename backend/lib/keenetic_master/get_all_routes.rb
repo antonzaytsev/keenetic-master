@@ -2,10 +2,9 @@ class KeeneticMaster
   class GetAllRoutes < BaseClass
     def call
       routes = Configuration.keenetic_client.routes.all
-      
       # Transform keys to symbols for consistency with existing code
       routes = routes.map { |row| row.transform_keys(&:to_sym) }
-      
+
       Success(routes)
     rescue Keenetic::AuthenticationError => e
       logger.error("GetAllRoutes: Authentication failed: #{e.message}")
