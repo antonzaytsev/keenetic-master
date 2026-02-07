@@ -69,7 +69,7 @@ const DumpImport: React.FC = () => {
       const dumpData = JSON.parse(databaseDump);
       const result = await apiService.importDatabase(dumpData, clearDatabase);
 
-      setSuccess(`Database imported successfully: ${result.imported.groups} groups, ${result.imported.domains} domains, ${result.imported.routes} routes`);
+      setSuccess(`Database imported successfully: ${result.imported.groups} groups, ${result.imported.domains} domains`);
       showNotification('success', 'Database imported successfully');
       setDatabaseDump('');
     } catch (err: any) {
@@ -243,7 +243,7 @@ const DumpImport: React.FC = () => {
                   onChange={(e) => setClearDatabase(e.target.checked)}
                 />
                 <Form.Text className="text-muted">
-                  If checked, all existing domain groups, domains, and routes will be deleted before import
+                  If checked, all existing domain groups and domains will be deleted before import
                 </Form.Text>
               </Form.Group>
 

@@ -62,10 +62,8 @@ class MigrateYamlToDb
     @logger.info("Rolling back migration - clearing database")
     
     Database.connection.transaction do
-      Route.truncate
       Domain.truncate  
       DomainGroup.truncate
-      SyncLog.truncate
     end
     
     @logger.info("Database cleared")

@@ -92,39 +92,45 @@ class KeeneticMaster
         group = DomainGroup.find(name: name)
         return false unless group
 
-        # Get all routes for this group that are synced to the router
-        synced_routes = Route.where(group_id: group.id, synced_to_router: true).all
-
-        # Delete routes from router if any exist
-        if synced_routes.any?
-          logger.info("Deleting #{synced_routes.size} routes from router for group '#{name}'")
-
-          routes_to_delete = synced_routes.map { |r| { network: r.network, mask: r.mask, comment: r.comment } }
-          delete_result = DeleteRoutes.call(routes_to_delete)
-
-          if delete_result.success?
-            logger.info("Successfully deleted #{synced_routes.size} routes from router")
-
-            # Log successful deletion for each route
-            synced_routes.each do |route|
-              SyncLog.log_success("delete", "route", route.id)
-            end
-          else
-            error_message = delete_result.failure.to_s
-            logger.error("Failed to delete routes from router: #{error_message}")
-
-            # Log errors for each route
-            synced_routes.each do |route|
-              SyncLog.log_error("delete", "route", error_message, route.id)
-            end
-
-            # Still proceed with group deletion even if router deletion fails
-            # This allows cleanup of database even if router is unreachable
-            logger.warn("Proceeding with group deletion despite router deletion failure")
+        # Get all routes for this group from router
+        router_routes_result = GetAllRoutes.new.call
+        
+        if router_routes_result.success?
+          router_routes = router_routes_result.value!
+          
+          # Filter routes that belong to this group by comment pattern
+          comment_pattern = /\[auto:#{Regexp.escape(name)}\]/
+          group_routes = router_routes.select do |route|
+            comment = route[:comment] || ''
+            comment_pattern.match?(comment)
           end
+
+          if group_routes.any?
+            logger.info("Deleting #{group_routes.size} routes from router for group '#{name}'")
+
+            routes_to_delete = group_routes.map do |r|
+              {
+                network: r[:network] || r[:dest],
+                mask: r[:mask] || r[:genmask] || '255.255.255.255',
+                comment: r[:comment]
+              }
+            end
+            
+            delete_result = DeleteRoutes.call(routes_to_delete)
+
+            if delete_result.success?
+              logger.info("Successfully deleted #{group_routes.size} routes from router")
+            else
+              error_message = delete_result.failure.to_s
+              logger.error("Failed to delete routes from router: #{error_message}")
+              logger.warn("Proceeding with group deletion despite router deletion failure")
+            end
+          end
+        else
+          logger.warn("Could not fetch routes from router, proceeding with group deletion")
         end
 
-        # Delete the group (this will cascade delete routes from database)
+        # Delete the group from database
         group.destroy
         logger.info("Domain group '#{name}' deleted successfully from database")
         true
@@ -143,8 +149,22 @@ class KeeneticMaster
       begin
         domain_groups = DomainGroup.order(:name).all
 
+        # Get all routes from router once for statistics
+        router_routes = []
+        router_routes_result = GetAllRoutes.new.call
+        if router_routes_result.success?
+          router_routes = router_routes_result.value!
+        end
+
         result = domain_groups.map do |group|
           domains_hash = group.to_hash
+          
+          # Count routes for this group from router
+          comment_pattern = /\[auto:#{Regexp.escape(group.name)}\]/
+          group_router_routes = router_routes.select do |route|
+            comment = route[:comment] || ''
+            comment_pattern.match?(comment)
+          end
 
           {
             id: group.id,
@@ -156,9 +176,9 @@ class KeeneticMaster
               total_domains: group.domains_dataset.where(type: 'follow_dns').count,
               regular_domains: 0,
               follow_dns_domains: group.domains_dataset.where(type: 'follow_dns').count,
-              total_routes: group.routes_dataset.count,
-              synced_routes: group.routes_dataset.where(synced_to_router: true).count,
-              pending_routes: group.routes_dataset.where(synced_to_router: false).count,
+              total_routes: group_router_routes.size,
+              synced_routes: group_router_routes.size,
+              pending_routes: 0,
               last_updated: group.updated_at&.iso8601
             },
             created_at: group.created_at&.iso8601,
@@ -925,10 +945,9 @@ class KeeneticMaster
       content_type :json
       begin
         dump_data = {
-          version: '1.0',
+          version: '2.0',
           timestamp: Time.now.iso8601,
-          domain_groups: [],
-          routes: []
+          domain_groups: []
         }
 
         DomainGroup.order(:name).all.each do |group|
@@ -954,21 +973,6 @@ class KeeneticMaster
           dump_data[:domain_groups] << group_data
         end
 
-        Route.order(:network, :mask).all.each do |route|
-          dump_data[:routes] << {
-            id: route.id,
-            group_id: route.group_id,
-            network: route.network,
-            mask: route.mask,
-            interface: route.interface,
-            comment: route.comment,
-            synced_to_router: route.synced_to_router,
-            synced_at: route.synced_at&.iso8601,
-            created_at: route.created_at&.iso8601,
-            updated_at: route.updated_at&.iso8601
-          }
-        end
-
         json dump_data
       rescue => e
         logger.error("Error dumping database: #{e.message}")
@@ -991,12 +995,10 @@ class KeeneticMaster
 
         imported_groups = 0
         imported_domains = 0
-        imported_routes = 0
 
         Database.connection.transaction do
           # Clear existing data if requested
           if params[:clear] == 'true'
-            Route.dataset.delete
             Domain.dataset.delete
             DomainGroup.dataset.delete
             logger.info("Cleared existing database data")
@@ -1040,47 +1042,15 @@ class KeeneticMaster
               end
             end
           end
-
-          # Import routes
-          if request_body['routes']
-            request_body['routes'].each do |route_data|
-              group_id = route_data['group_id']
-
-              # Try to find group by ID or name
-              group = DomainGroup[group_id] if group_id
-
-              if group
-                existing = Route.where(
-                  group_id: group.id,
-                  network: route_data['network'],
-                  mask: route_data['mask']
-                ).first
-
-                unless existing
-                  Route.create(
-                    group_id: group.id,
-                    network: route_data['network'],
-                    mask: route_data['mask'],
-                    interface: route_data['interface'],
-                    comment: route_data['comment'],
-                    synced_to_router: route_data['synced_to_router'] || false,
-                    synced_at: route_data['synced_at'] ? Time.parse(route_data['synced_at']) : nil
-                  )
-                  imported_routes += 1
-                end
-              end
-            end
-          end
         end
 
-        logger.info("Database import completed: #{imported_groups} groups, #{imported_domains} domains, #{imported_routes} routes")
+        logger.info("Database import completed: #{imported_groups} groups, #{imported_domains} domains")
         json({
           success: true,
           message: "Database imported successfully",
           imported: {
             groups: imported_groups,
-            domains: imported_domains,
-            routes: imported_routes
+            domains: imported_domains
           }
         })
       rescue JSON::ParserError
@@ -1223,58 +1193,6 @@ class KeeneticMaster
         json error: "Invalid JSON format"
       rescue => e
         logger.error("Error importing router routes: #{e.message}")
-        logger.error(e.backtrace.join("\n"))
-        status 500
-        json error: e.message
-      end
-    end
-
-    # API endpoint to delete all routes (generated IP addresses) from database
-    # This only deletes routes, not domain groups or domains
-    delete '/api/routes' do
-      content_type :json
-      begin
-        route_count = Route.count
-
-        if route_count == 0
-          return json({
-            success: true,
-            message: "No routes to delete",
-            deleted_count: 0
-          })
-        end
-
-        # Verify domain groups will not be affected
-        group_count_before = DomainGroup.count
-        domain_count_before = Domain.count
-
-        logger.info("Deleting all #{route_count} routes (generated IP addresses) from database")
-        logger.info("Domain groups (#{group_count_before}) and domains (#{domain_count_before}) will remain intact")
-
-        # Use dataset.delete for Sequel models - returns number of deleted records
-        # This only deletes routes, domain groups and domains are not affected
-        deleted_count = Route.dataset.delete
-
-        # Verify domain groups and domains are still intact
-        group_count_after = DomainGroup.count
-        domain_count_after = Domain.count
-
-        if group_count_before != group_count_after || domain_count_before != domain_count_after
-          logger.error("ERROR: Domain groups or domains were affected! Groups: #{group_count_before} -> #{group_count_after}, Domains: #{domain_count_before} -> #{domain_count_after}")
-          raise StandardError, "Domain groups or domains were unexpectedly affected during route deletion"
-        end
-
-        logger.info("Successfully deleted #{deleted_count} routes from database. Domain groups and domains remain intact.")
-
-        json({
-          success: true,
-          message: "Successfully deleted #{deleted_count} routes (generated IP addresses) from database. Domain groups and domains remain intact.",
-          deleted_count: deleted_count,
-          domain_groups_preserved: group_count_after,
-          domains_preserved: domain_count_after
-        })
-      rescue => e
-        logger.error("Error deleting all routes from database: #{e.message}")
         logger.error(e.backtrace.join("\n"))
         status 500
         json error: e.message

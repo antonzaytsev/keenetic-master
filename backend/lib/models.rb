@@ -12,7 +12,6 @@ end
 # Domain group model
 class DomainGroup < Sequel::Model(:domain_groups)
   one_to_many :domains, key: :group_id
-  one_to_many :routes, key: :group_id
 
   def before_update
     self.updated_at = Time.now
@@ -101,73 +100,6 @@ class Domain < Sequel::Model(:domains)
 
   def domain_name=(name)
     self.domain = name
-  end
-end
-
-# Route model
-class Route < Sequel::Model(:routes)
-  many_to_one :domain_group, key: :group_id
-
-  def before_update
-    self.updated_at = Time.now
-    super
-  end
-
-  def mark_synced!
-    update(synced_to_router: true, synced_at: Time.now)
-  end
-
-  def mark_unsynced!
-    update(synced_to_router: false, synced_at: nil)
-  end
-
-  # Convert to format expected by Keenetic API
-  def to_keenetic_format
-    {
-      network: network,
-      mask: mask,
-      interface: interface,
-      comment: comment
-    }.compact
-  end
-
-  # Find routes that need to be synced
-  def self.pending_sync
-    where(synced_to_router: false)
-  end
-
-  # Find routes that are out of sync (older than X minutes)
-  def self.stale(minutes = 60)
-    where(synced_to_router: true)
-      .where { synced_at < Time.now - (minutes * 60) }
-  end
-end
-
-# Sync log model for tracking sync operations
-class SyncLog < Sequel::Model(:sync_log)
-  def self.log_success(operation, resource_type, resource_id = nil)
-    create(
-      operation: operation,
-      resource_type: resource_type,
-      resource_id: resource_id,
-      success: true
-    )
-  end
-
-  def self.log_error(operation, resource_type, error_message, resource_id = nil)
-    create(
-      operation: operation,
-      resource_type: resource_type,
-      resource_id: resource_id,
-      success: false,
-      error_message: error_message
-    )
-  end
-
-  def self.recent_failures(hours = 24)
-    where(success: false)
-      .where { created_at > Time.now - (hours * 3600) }
-      .order(:created_at)
   end
 end
 

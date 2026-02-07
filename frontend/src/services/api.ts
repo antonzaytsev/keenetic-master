@@ -50,12 +50,10 @@ export interface Route {
   network: string;
   mask: string;
   interface?: string;
+  gateway?: string;
   comment?: string;
   group_name?: string;
-  synced_to_router: boolean;
-  synced_at?: string;
-  created_at?: string;
-  updated_at?: string;
+  description?: string;
 }
 
 export interface DnsLog {
@@ -221,11 +219,6 @@ export const apiService = {
 
   deleteGroupRouterRoutes: async (groupName: string): Promise<any> => {
     const response = await api.delete(`/api/router-routes/auto/${encodeURIComponent(groupName)}`);
-    return response.data;
-  },
-
-  deleteAllRoutes: async (): Promise<any> => {
-    const response = await api.delete('/api/routes');
     return response.data;
   },
 };

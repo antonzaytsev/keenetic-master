@@ -16,8 +16,6 @@ const DomainGroups: React.FC = () => {
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
   const [showDeleteAutoModal, setShowDeleteAutoModal] = useState(false);
   const [deletingAutoRoutes, setDeletingAutoRoutes] = useState(false);
-  const [showDeleteAllRoutesModal, setShowDeleteAllRoutesModal] = useState(false);
-  const [deletingAllRoutes, setDeletingAllRoutes] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTermRef = useRef<string>('');
 
@@ -155,23 +153,6 @@ const DomainGroups: React.FC = () => {
     }
   };
 
-  const handleDeleteAllRoutes = async () => {
-    setShowDeleteAllRoutesModal(false);
-    setDeletingAllRoutes(true);
-    
-    try {
-      const result = await apiService.deleteAllRoutes();
-      showNotification('success', result.message || `Successfully deleted ${result.deleted_count} routes from database`);
-      await loadDomainGroups();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(`Failed to delete all routes: ${errorMessage}`);
-      showNotification('error', `Failed to delete all routes: ${errorMessage}`);
-    } finally {
-      setDeletingAllRoutes(false);
-    }
-  };
-
 
   if (loading) {
     return (
@@ -193,30 +174,11 @@ const DomainGroups: React.FC = () => {
                 variant="danger" 
                 size="sm" 
                 onClick={() => setShowDeleteAutoModal(true)}
-                disabled={deletingAutoRoutes || deletingAllRoutes}
+                disabled={deletingAutoRoutes}
                 className="me-2"
               >
                 <i className="fas fa-trash-alt me-1"></i>
                 {deletingAutoRoutes ? 'Deleting...' : 'Delete Auto Routes'}
-              </Button>
-              <Button 
-                variant="danger" 
-                size="sm" 
-                onClick={() => setShowDeleteAllRoutesModal(true)}
-                disabled={deletingAutoRoutes || deletingAllRoutes}
-                className="me-2"
-              >
-                {deletingAllRoutes ? (
-                  <>
-                    <div className="loading-spinner me-2"></div>
-                    Deleting...
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-database me-1"></i>
-                    Delete All Routes from DB
-                  </>
-                )}
               </Button>
               <Button 
                 variant="primary" 
@@ -430,17 +392,6 @@ const DomainGroups: React.FC = () => {
         variant="danger"
         onConfirm={handleDeleteAutoRoutes}
         onCancel={() => setShowDeleteAutoModal(false)}
-      />
-
-      <ConfirmModal
-        show={showDeleteAllRoutesModal}
-        title="Delete All Routes from Database"
-        message="Are you sure you want to delete all routes (generated IP addresses) from the database? This action cannot be undone. Domain groups and domains will remain intact."
-        confirmText="Delete All"
-        cancelText="Cancel"
-        variant="danger"
-        onConfirm={handleDeleteAllRoutes}
-        onCancel={() => setShowDeleteAllRoutesModal(false)}
       />
     </>
   );

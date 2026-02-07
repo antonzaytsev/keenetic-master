@@ -5,17 +5,16 @@ class KeeneticMaster
       router_result = get_router_routes
       return router_result if router_result.failure?
 
-      # Get database routes for this group to know which networks to look for
+      # Verify group exists
       group = DomainGroup.find(name: group_name)
       return Failure(error: "Group not found") unless group
 
-      group_networks = Route.where(group_id: group.id).select_map(:network)
-      
-      # Filter router routes to match our group's networks
       router_routes = router_result.value!
+      
+      # Filter routes that belong to this group by comment pattern [auto:group_name]
       matching_routes = router_routes.select do |route|
-        network = route[:network] || route[:dest]
-        network && group_networks.include?(network)
+        comment = route[:comment] || ''
+        comment.match(/\[auto:#{Regexp.escape(group_name)}\]/)
       end
 
       Success({

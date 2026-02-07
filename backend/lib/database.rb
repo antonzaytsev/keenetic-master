@@ -41,9 +41,11 @@ class Database
     def run_migrations!
       create_domain_groups_table unless @db.tables.include?(:domain_groups)
       create_domains_table unless @db.tables.include?(:domains)
-      create_routes_table unless @db.tables.include?(:routes)
-      create_sync_log_table unless @db.tables.include?(:sync_log)
       create_dns_processing_log_table unless @db.tables.include?(:dns_processing_log)
+      
+      # Drop routes and sync_log tables if they exist (no longer needed - routes stored on Keenetic)
+      @db.drop_table(:routes) if @db.tables.include?(:routes)
+      @db.drop_table(:sync_log) if @db.tables.include?(:sync_log)
     end
 
     def tables_exist?
@@ -73,39 +75,6 @@ class Database
         
         index [:group_id, :domain]
         index :type
-      end
-    end
-
-    def create_routes_table
-      @db.create_table :routes do
-        primary_key :id
-        foreign_key :group_id, :domain_groups, on_delete: :cascade
-        String :network, null: false
-        String :mask, null: false
-        String :interface, null: false
-        String :comment
-        Boolean :synced_to_router, default: false
-        DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
-        DateTime :updated_at, default: Sequel::CURRENT_TIMESTAMP
-        DateTime :synced_at
-        
-        index [:group_id, :network, :mask]
-        index :synced_to_router
-      end
-    end
-
-    def create_sync_log_table
-      @db.create_table :sync_log do
-        primary_key :id
-        String :operation, null: false # add, delete, update
-        String :resource_type, null: false # route
-        Integer :resource_id
-        Boolean :success, default: false
-        String :error_message
-        DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
-        
-        index :created_at
-        index :success
       end
     end
 

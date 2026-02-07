@@ -39,12 +39,10 @@ def setup_database
   
   group_count = DomainGroup.count
   domain_count = Domain.count
-  route_count = Route.count
   
   puts "📊 Database status:"
   puts "  - Groups: #{group_count}"
   puts "  - Domains: #{domain_count}"
-  puts "  - Routes: #{route_count}"
 end
 
 def migrate_yaml(yaml_file = nil)
@@ -94,9 +92,9 @@ def sync_database
   if result.success?
     stats = result.value!
     puts "✅ Sync completed successfully:"
-    puts "  - Generated routes: #{stats[:generated]}"
-    puts "  - Synced to router: #{stats[:synced_to_router]}"
-    puts "  - Reconciled from router: #{stats[:reconciled_from_router]}"
+    puts "  - Groups processed: #{stats[:groups_processed]}"
+    puts "  - Routes added: #{stats[:total_added]}"
+    puts "  - Routes deleted: #{stats[:total_deleted]}"
   else
     puts "❌ Sync failed: #{result.failure}"
     exit(1)
@@ -157,31 +155,16 @@ def show_status
     puts "Tables:"
     puts "  - domain_groups: #{DomainGroup.count} records"
     puts "  - domains: #{Domain.count} records"
-    puts "  - routes: #{Route.count} records"
-    puts "  - sync_log: #{SyncLog.count} records"
     puts
     
     # Domain type breakdown
-    regular_count = Domain.where(type: 'regular').count
     follow_dns_count = Domain.where(type: 'follow_dns').count
     puts "Domain Types:"
-    puts "  - Regular: #{regular_count}"
     puts "  - DNS Monitored: #{follow_dns_count}"
     puts
     
-    # Recent sync activity
-    recent_syncs = SyncLog.recent_failures(24).count
-    if recent_syncs > 0
-      puts "⚠️  #{recent_syncs} sync failures in last 24 hours"
-    end
-    
-    # Pending routes
-    pending_routes = Route.pending_sync.count
-    if pending_routes > 0
-      puts "📤 #{pending_routes} routes pending sync to router"
-    else
-      puts "✅ All routes are synced"
-    end
+    # Routes are now stored on Keenetic router directly
+    puts "Routes: Stored on Keenetic router (use /api/router-routes to view)"
     
   rescue => e
     puts "❌ Database connection failed: #{e.message}"
