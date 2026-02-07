@@ -69,6 +69,12 @@ const Navigation: React.FC = () => {
                 Dump & Import
               </Nav.Link>
             </LinkContainer>
+            
+            <LinkContainer to="/settings">
+              <Nav.Link className={location.pathname === '/settings' ? 'active' : ''}>
+                Settings
+              </Nav.Link>
+            </LinkContainer>
           </Nav>
           
           <Nav className="ms-auto">

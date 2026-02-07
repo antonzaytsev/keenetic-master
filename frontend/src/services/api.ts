@@ -226,6 +226,27 @@ export const apiService = {
     const response = await api.post(`/api/domains/${encodeURIComponent(groupName)}/push-routes`);
     return response.data;
   },
+
+  // Settings
+  getSettings: async (): Promise<any> => {
+    const response = await api.get('/api/settings');
+    return response.data;
+  },
+
+  updateSettings: async (settings: {
+    keenetic_login?: string;
+    keenetic_password?: string;
+    keenetic_host?: string;
+    keenetic_vpn_interface?: string;
+  }): Promise<any> => {
+    const response = await api.put('/api/settings', settings);
+    return response.data;
+  },
+
+  testConnection: async (): Promise<any> => {
+    const response = await api.post('/api/settings/test-connection');
+    return response.data;
+  },
 };
 
 export default apiService;

@@ -11,6 +11,7 @@ import AddGroup from './components/AddGroup';
 import RouterRoutes from './components/RouterRoutes';
 import DnsLogs from './components/DnsLogs';
 import DumpImport from './components/DumpImport';
+import Settings from './components/Settings';
 
 import './App.css';
 
@@ -28,6 +29,7 @@ function App() {
               <Route path="/router-routes" element={<RouterRoutes />} />
               <Route path="/dns-logs" element={<DnsLogs />} />
               <Route path="/dump-import" element={<DumpImport />} />
+              <Route path="/settings" element={<Settings />} />
             </Routes>
           </div>
         </div>
