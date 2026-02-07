@@ -19,6 +19,7 @@ require_relative 'router_routes_manager'
 require_relative 'delete_routes'
 require_relative 'apply_route_changes'
 require_relative 'correct_interface'
+require_relative 'configuration'
 
 class KeeneticMaster
   class WebServer < Sinatra::Base
@@ -833,11 +834,11 @@ class KeeneticMaster
 
           # Extract interface IDs and descriptions
           # interfaces_data is a hash where keys are interface IDs
-          interfaces = interfaces_data.map do |id, data|
+          interfaces = interfaces_data.map do |interface|
             {
-              id: id.to_s,
-              description: (data.is_a?(Hash) ? (data['description'] || data[:description]) : nil) || id.to_s,
-              name: (data.is_a?(Hash) ? (data['name'] || data[:name]) : nil) || id.to_s
+              id: interface[:id],
+              description: interface[:description],
+              name: interface[:description]
             }
           end
 
@@ -1252,6 +1253,7 @@ class KeeneticMaster
           dns_logs_stats: '/api/dns-logs/stats',
           dumps_database: '/api/dumps/database',
           dumps_router_routes: '/api/dumps/router-routes',
+          settings: '/api/settings',
           health: '/health'
         },
         timestamp: Time.now.iso8601
@@ -1261,6 +1263,103 @@ class KeeneticMaster
     # Health check endpoint
     get '/health' do
       json status: 'ok', timestamp: Time.now.iso8601
+    end
+
+    # API endpoint to get all settings
+    get '/api/settings' do
+      content_type :json
+      begin
+        settings = Setting.get_all_keenetic_settings
+
+        json({
+          success: true,
+          settings: settings
+        })
+      rescue => e
+        logger.error("Error getting settings: #{e.message}")
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint to update settings
+    put '/api/settings' do
+      content_type :json
+      begin
+        request_body = JSON.parse(request.body.read)
+
+        unless request_body.is_a?(Hash)
+          status 400
+          return json error: "Invalid settings format"
+        end
+
+        updated_settings = []
+
+        Database.connection.transaction do
+          request_body.each do |key, value|
+            next unless Setting::KEENETIC_SETTINGS.include?(key)
+
+            Setting.set(key, value, description: Setting::SETTING_DESCRIPTIONS[key])
+            updated_settings << key
+          end
+        end
+
+        # Reconfigure Keenetic client with new settings
+        begin
+          KeeneticMaster::Configuration.reconfigure_keenetic_client!
+          logger.info("Keenetic client reconfigured with new settings")
+        rescue => e
+          logger.warn("Could not reconfigure Keenetic client: #{e.message}")
+        end
+
+        logger.info("Settings updated: #{updated_settings.join(', ')}")
+        json({
+          success: true,
+          message: "Settings updated successfully",
+          updated: updated_settings
+        })
+      rescue JSON::ParserError
+        status 400
+        json error: "Invalid JSON format"
+      rescue => e
+        logger.error("Error updating settings: #{e.message}")
+        status 500
+        json error: e.message
+      end
+    end
+
+    # API endpoint to test router connection with current settings
+    post '/api/settings/test-connection' do
+      content_type :json
+      begin
+        # Try to connect to router with current settings
+        result = KeeneticMaster.interface
+
+        if result.success?
+          interfaces_data = result.value!
+          interface_count = interfaces_data.keys.size
+
+          json({
+            success: true,
+            message: "Successfully connected to router",
+            interface_count: interface_count
+          })
+        else
+          error_message = result.failure[:message] || "Connection failed"
+          status 400
+          json({
+            success: false,
+            message: error_message
+          })
+        end
+      rescue => e
+        logger.error("Error testing connection: #{e.message}")
+        status 500
+        json({
+          success: false,
+          message: e.message
+        })
+      end
     end
 
     # Start the server
