@@ -33,7 +33,6 @@ const GroupDetails: React.FC = () => {
   const [showDeleteRoutesModal, setShowDeleteRoutesModal] = useState(false);
   const [deletingRoutes, setDeletingRoutes] = useState(false);
   const [pushingRoutes, setPushingRoutes] = useState(false);
-  const [showDeleteWrongInterfaceModal, setShowDeleteWrongInterfaceModal] = useState(false);
   const [deletingWrongInterfaceRoutes, setDeletingWrongInterfaceRoutes] = useState(false);
 
   useEffect(() => {
@@ -488,7 +487,6 @@ const GroupDetails: React.FC = () => {
   const handleDeleteWrongInterfaceRoutes = async () => {
     if (!groupName) return;
 
-    setShowDeleteWrongInterfaceModal(false);
     setDeletingWrongInterfaceRoutes(true);
 
     try {
@@ -982,7 +980,7 @@ const GroupDetails: React.FC = () => {
                   <Button
                     variant="outline-warning"
                     size="sm"
-                    onClick={() => setShowDeleteWrongInterfaceModal(true)}
+                    onClick={handleDeleteWrongInterfaceRoutes}
                     className="me-2"
                     title="Delete routes that use a different interface than configured for this group"
                   >
@@ -1140,17 +1138,6 @@ const GroupDetails: React.FC = () => {
         variant="danger"
         onConfirm={handleDeleteGroupRoutes}
         onCancel={() => setShowDeleteRoutesModal(false)}
-      />
-
-      <ConfirmModal
-        show={showDeleteWrongInterfaceModal}
-        title="Delete Routes with Wrong Interface"
-        message={`Are you sure you want to delete routes for group "${groupName}" that are using a different interface than configured? This will keep only routes matching the group's interface setting.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        variant="warning"
-        onConfirm={handleDeleteWrongInterfaceRoutes}
-        onCancel={() => setShowDeleteWrongInterfaceModal(false)}
       />
     </>
   );
