@@ -35,22 +35,6 @@ const GroupDetails: React.FC = () => {
   const [pushingRoutes, setPushingRoutes] = useState(false);
   const [showDeleteWrongInterfaceModal, setShowDeleteWrongInterfaceModal] = useState(false);
   const [deletingWrongInterfaceRoutes, setDeletingWrongInterfaceRoutes] = useState(false);
-  const [defaultVpnInterface, setDefaultVpnInterface] = useState<string>('');
-
-  useEffect(() => {
-    // Load default VPN interface from settings
-    const loadDefaultInterface = async () => {
-      try {
-        const result = await apiService.getSettings();
-        if (result.success && result.settings?.keenetic_vpn_interface) {
-          setDefaultVpnInterface(result.settings.keenetic_vpn_interface);
-        }
-      } catch (err) {
-        console.error('Failed to load default VPN interface:', err);
-      }
-    };
-    loadDefaultInterface();
-  }, []);
 
   useEffect(() => {
     const loadGroupDetails = async () => {
@@ -521,20 +505,6 @@ const GroupDetails: React.FC = () => {
     }
   };
 
-  const getWrongInterfaceRoutesCount = () => {
-    if (routerRoutes.length === 0) return 0;
-    // Use group's interface or fall back to default VPN interface
-    const interfaceString = group?.interfaces || defaultVpnInterface;
-    if (!interfaceString) return 0;
-    const configuredInterfaces = interfaceString.split(',').map(i => i.trim());
-    return routerRoutes.filter(route => 
-      route.interface && !configuredInterfaces.includes(route.interface)
-    ).length;
-  };
-
-  const getConfiguredInterface = () => {
-    return group?.interfaces || defaultVpnInterface || '';
-  };
 
   const getDomainsList = () => {
     // Use domains with type information if available (preferred method)
@@ -1013,7 +983,6 @@ const GroupDetails: React.FC = () => {
                     variant="outline-warning"
                     size="sm"
                     onClick={() => setShowDeleteWrongInterfaceModal(true)}
-                    disabled={routerRoutesLoading || deletingWrongInterfaceRoutes || deletingRoutes || pushingRoutes || !getConfiguredInterface() || getWrongInterfaceRoutesCount() === 0}
                     className="me-2"
                     title="Delete routes that use a different interface than configured for this group"
                   >
@@ -1025,7 +994,7 @@ const GroupDetails: React.FC = () => {
                     ) : (
                       <>
                         <i className="fas fa-exchange-alt me-1"></i>
-                        Delete Wrong Interface ({getWrongInterfaceRoutesCount()})
+                        Delete Wrong Interface
                       </>
                     )}
                   </Button>
@@ -1176,7 +1145,7 @@ const GroupDetails: React.FC = () => {
       <ConfirmModal
         show={showDeleteWrongInterfaceModal}
         title="Delete Routes with Wrong Interface"
-        message={`Are you sure you want to delete ${getWrongInterfaceRoutesCount()} routes that don't use the configured interface "${getConfiguredInterface()}"${!group?.interfaces ? ' (default)' : ''}? This will remove routes for group "${groupName}" that are using a different interface.`}
+        message={`Are you sure you want to delete routes for group "${groupName}" that are using a different interface than configured? This will keep only routes matching the group's interface setting.`}
         confirmText="Delete"
         cancelText="Cancel"
         variant="warning"
