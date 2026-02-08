@@ -756,13 +756,9 @@ class KeeneticMaster
           return json error: "Domain group '#{group_name}' not found"
         end
 
-        unless group.interfaces && !group.interfaces.strip.empty?
-          status 400
-          return json error: "Group '#{group_name}' has no interface configured"
-        end
-
-        # Get all configured interfaces for this group (comma-separated)
-        configured_interfaces = group.interfaces.split(',').map(&:strip)
+        # Get all configured interfaces for this group (use default VPN interface if not set)
+        interface_string = group.interfaces.to_s.strip.empty? ? Configuration.vpn_interface : group.interfaces
+        configured_interfaces = interface_string.split(',').map(&:strip)
 
         # Get all routes from router
         result = GetAllRoutes.new.call
