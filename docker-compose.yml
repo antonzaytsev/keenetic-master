@@ -76,13 +76,13 @@ services:
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-false}
       WATCHPACK_POLLING: ${WATCHPACK_POLLING:-false}
       FAST_REFRESH: ${FAST_REFRESH:-false}
-      REACT_APP_API_BASE_HOST: ${BACKEND_HOST:-localhost}
       REACT_APP_API_BASE_PORT: ${BACKEND_PORT:-3201}
       WDS_SOCKET_HOST: ${BACKEND_HOST:-localhost}
       WDS_SOCKET_PORT: ${FRONTEND_PORT:-3200}
+      PORT: ${FRONTEND_PORT:-3200}
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-3200}:3000"
+      - "${FRONTEND_PORT:-3200}:${FRONTEND_PORT:-3200}"
     depends_on:
       - backend
     volumes:
