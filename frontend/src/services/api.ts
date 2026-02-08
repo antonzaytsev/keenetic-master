@@ -223,6 +223,11 @@ export const apiService = {
     return response.data;
   },
 
+  deleteWrongInterfaceRoutes: async (groupName: string): Promise<any> => {
+    const response = await api.delete(`/api/router-routes/auto/${encodeURIComponent(groupName)}/wrong-interface`);
+    return response.data;
+  },
+
   pushGroupRoutes: async (groupName: string): Promise<any> => {
     const response = await api.post(`/api/domains/${encodeURIComponent(groupName)}/push-routes`);
     return response.data;

@@ -33,6 +33,8 @@ const GroupDetails: React.FC = () => {
   const [showDeleteRoutesModal, setShowDeleteRoutesModal] = useState(false);
   const [deletingRoutes, setDeletingRoutes] = useState(false);
   const [pushingRoutes, setPushingRoutes] = useState(false);
+  const [showDeleteWrongInterfaceModal, setShowDeleteWrongInterfaceModal] = useState(false);
+  const [deletingWrongInterfaceRoutes, setDeletingWrongInterfaceRoutes] = useState(false);
 
   useEffect(() => {
     const loadGroupDetails = async () => {
@@ -481,6 +483,34 @@ const GroupDetails: React.FC = () => {
     } finally {
       setPushingRoutes(false);
     }
+  };
+
+  const handleDeleteWrongInterfaceRoutes = async () => {
+    if (!groupName) return;
+
+    setShowDeleteWrongInterfaceModal(false);
+    setDeletingWrongInterfaceRoutes(true);
+
+    try {
+      const result = await apiService.deleteWrongInterfaceRoutes(groupName);
+      showNotification('success', result.message || `Successfully deleted ${result.deleted_count || 0} routes with wrong interface`);
+      await loadRouterRoutes();
+    } catch (err: any) {
+      console.error('Error deleting wrong interface routes:', err);
+      const errorMessage = err.response?.data?.error || err.message;
+      setError(`Failed to delete wrong interface routes: ${errorMessage}`);
+      showNotification('error', `Failed to delete wrong interface routes: ${errorMessage}`);
+    } finally {
+      setDeletingWrongInterfaceRoutes(false);
+    }
+  };
+
+  const getWrongInterfaceRoutesCount = () => {
+    if (!group?.interfaces || routerRoutes.length === 0) return 0;
+    const configuredInterfaces = group.interfaces.split(',').map(i => i.trim());
+    return routerRoutes.filter(route => 
+      route.interface && !configuredInterfaces.includes(route.interface)
+    ).length;
   };
 
   const getDomainsList = () => {
@@ -957,10 +987,30 @@ const GroupDetails: React.FC = () => {
                     )}
                   </Button>
                   <Button
+                    variant="outline-warning"
+                    size="sm"
+                    onClick={() => setShowDeleteWrongInterfaceModal(true)}
+                    disabled={routerRoutesLoading || deletingWrongInterfaceRoutes || deletingRoutes || pushingRoutes || !group?.interfaces || getWrongInterfaceRoutesCount() === 0}
+                    className="me-2"
+                    title="Delete routes that use a different interface than configured for this group"
+                  >
+                    {deletingWrongInterfaceRoutes ? (
+                      <>
+                        <div className="loading-spinner me-1"></div>
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-exchange-alt me-1"></i>
+                        Delete Wrong Interface ({getWrongInterfaceRoutesCount()})
+                      </>
+                    )}
+                  </Button>
+                  <Button
                     variant="outline-danger"
                     size="sm"
                     onClick={() => setShowDeleteRoutesModal(true)}
-                    disabled={routerRoutesLoading || deletingRoutes || pushingRoutes || routerRoutes.length === 0}
+                    disabled={routerRoutesLoading || deletingRoutes || deletingWrongInterfaceRoutes || pushingRoutes || routerRoutes.length === 0}
                     className="me-2"
                   >
                     {deletingRoutes ? (
@@ -1098,6 +1148,17 @@ const GroupDetails: React.FC = () => {
         variant="danger"
         onConfirm={handleDeleteGroupRoutes}
         onCancel={() => setShowDeleteRoutesModal(false)}
+      />
+
+      <ConfirmModal
+        show={showDeleteWrongInterfaceModal}
+        title="Delete Routes with Wrong Interface"
+        message={`Are you sure you want to delete ${getWrongInterfaceRoutesCount()} routes that don't use the configured interface "${group?.interfaces}"? This will remove routes for group "${groupName}" that are using a different interface.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="warning"
+        onConfirm={handleDeleteWrongInterfaceRoutes}
+        onCancel={() => setShowDeleteWrongInterfaceModal(false)}
       />
     </>
   );
