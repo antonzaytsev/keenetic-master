@@ -35,10 +35,20 @@ class KeeneticMaster
         CorrectInterface.call(interface.to_s)
       end
 
+      # Get configured interfaces for this group (normalized)
+      configured_interfaces = (group.interfaces || Configuration.vpn_interface).split(',').map do |iface|
+        normalize_interface.call(iface.strip)
+      end.to_set
+
       # Get fresh routes network addresses (with normalized interfaces)
       fresh_routes_set = fresh_routes.map do |r|
         normalized_interface = normalize_interface.call(r[:interface])
         [r[:network], r[:mask], normalized_interface]
+      end.to_set
+
+      # Also create a set of just network/mask for fresh routes (interface-agnostic)
+      fresh_networks_set = fresh_routes.map do |r|
+        [r[:network], r[:mask]]
       end.to_set
 
       # Filter routes that belong to this group by comment pattern [auto:group_name]
@@ -50,22 +60,22 @@ class KeeneticMaster
       deleted_count = 0
       added_count = 0
 
-      # Create a set of ALL router routes for comparison (to avoid adding duplicates)
-      all_router_routes_set = all_router_routes.map do |r|
-        network = r[:network] || r[:dest]
-        mask = r[:mask] || r[:genmask] || '255.255.255.255'
-        interface = r[:interface] || r[:iface]
-        normalized_interface = normalize_interface.call(interface)
-        [network, mask, normalized_interface]
-      end.to_set
-
-      # Step 1: Delete routes on router that belong to this group but aren't in fresh routes
+      # Step 1: Delete routes that belong to this group but either:
+      # a) Have a network/mask not in fresh routes, OR
+      # b) Have a wrong interface (not in configured interfaces)
       routes_to_delete = group_router_routes.select do |router_route|
         network = router_route[:network] || router_route[:dest]
         mask = router_route[:mask] || router_route[:genmask] || '255.255.255.255'
         interface = router_route[:interface] || router_route[:iface]
         normalized_interface = normalize_interface.call(interface)
-        !fresh_routes_set.include?([network, mask, normalized_interface])
+
+        # Delete if network/mask is not needed anymore
+        network_not_needed = !fresh_networks_set.include?([network, mask])
+
+        # Delete if interface is wrong (not in configured interfaces)
+        wrong_interface = normalized_interface && !configured_interfaces.include?(normalized_interface)
+
+        network_not_needed || wrong_interface
       end
 
       if routes_to_delete.any?
@@ -87,20 +97,32 @@ class KeeneticMaster
         delete_result = DeleteRoutes.call(delete_data)
         if delete_result.success?
           deleted_count = routes_to_delete.size
-          @logger.info("Successfully deleted #{deleted_count} extra routes from router for group '#{group.name}'")
+          @logger.info("Successfully deleted #{deleted_count} routes from router for group '#{group.name}'")
         else
           error_message = delete_result.failure.to_s
           @logger.error("Failed to delete routes from router: #{error_message}")
         end
       end
 
-      # Step 2: Add routes that aren't on router yet
+      # Step 2: Add routes that aren't on router yet (with correct interface)
+      # Re-fetch routes after deletion to get accurate state
+      router_routes_after_delete = GetAllRoutes.new.call
+      current_router_routes = router_routes_after_delete.success? ? router_routes_after_delete.value! : all_router_routes
+
+      current_routes_set = current_router_routes.map do |r|
+        network = r[:network] || r[:dest]
+        mask = r[:mask] || r[:genmask] || '255.255.255.255'
+        interface = r[:interface] || r[:iface]
+        normalized_interface = normalize_interface.call(interface)
+        [network, mask, normalized_interface]
+      end.to_set
+
       routes_to_add = fresh_routes.select do |fresh_route|
         network = fresh_route[:network]
         mask = fresh_route[:mask]
         interface = fresh_route[:interface]
         normalized_interface = normalize_interface.call(interface)
-        !all_router_routes_set.include?([network, mask, normalized_interface])
+        !current_routes_set.include?([network, mask, normalized_interface])
       end
 
       if routes_to_add.any?
@@ -191,16 +213,25 @@ class KeeneticMaster
           # Group no longer exists, all its routes are obsolete
           obsolete_routes.concat(routes)
         else
-          # Check if routes are still needed based on current domains
+          # Check if routes are still needed based on current domains and correct interface
           fresh_routes = generate_routes_for_group(group)
-          fresh_routes_set = fresh_routes.map { |r| [r[:network], r[:mask], CorrectInterface.call(r[:interface])] }.to_set
+          fresh_networks_set = fresh_routes.map { |r| [r[:network], r[:mask]] }.to_set
+
+          # Get configured interfaces for this group
+          configured_interfaces = (group.interfaces || Configuration.vpn_interface).split(',').map do |iface|
+            CorrectInterface.call(iface.strip)
+          end.to_set
 
           routes.each do |route|
             network = route[:network] || route[:dest]
             mask = route[:mask] || route[:genmask] || '255.255.255.255'
             interface = CorrectInterface.call(route[:interface] || route[:iface])
 
-            unless fresh_routes_set.include?([network, mask, interface])
+            # Route is obsolete if network/mask is not needed OR interface is wrong
+            network_not_needed = !fresh_networks_set.include?([network, mask])
+            wrong_interface = interface && !configured_interfaces.include?(interface)
+
+            if network_not_needed || wrong_interface
               obsolete_routes << route
             end
           end
