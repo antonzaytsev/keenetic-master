@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/antonzaytsev/keenetic-ruby.git
-  revision: 89bc906a3a724ce2296b4c53f67f54450fa9e140
+  revision: 0345f9d2dd395a103559686ff04d15b1b0888b21
   specs:
     keenetic (1.0.0)
       logger (~> 1.0)
