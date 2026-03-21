@@ -154,13 +154,16 @@ class KeeneticMaster
 
     def add_routes_for_domain(group, website, requested_domain, data, routes_to_update)
       routes_count = 0
+      domain_mask = (data[:mask] || Configuration.domains_mask).to_s
+      mask = Constants::MASKS.fetch(domain_mask)
 
       group['answers'].each do |answer|
         ip_address = answer.last
+        network = calculate_network(ip_address, domain_mask)
         data[:interfaces].each do |interface|
           route = {
-            network: ip_address.sub(/\.\d+$/, '.0'),
-            mask: Constants::MASKS.fetch('24'),
+            network: network,
+            mask: mask,
             interface: CorrectInterface.call(interface),
             comment: "[auto:#{website}] #{requested_domain}",
             auto: true
@@ -171,6 +174,14 @@ class KeeneticMaster
       end
 
       routes_count
+    end
+
+    def calculate_network(address, domain_mask)
+      if domain_mask == '24'
+        address.sub(/\.\d+$/, '.0')
+      else
+        address
+      end
     end
 
     def apply_route_updates(routes_to_update, processed_domains)
@@ -225,7 +236,8 @@ class KeeneticMaster
 
         websites[group.name] = {
           domains: follow_dns_domains,
-          interfaces: interfaces
+          interfaces: interfaces,
+          mask: group.mask
         }
       end
 

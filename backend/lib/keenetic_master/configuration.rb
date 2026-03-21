@@ -63,7 +63,7 @@ class KeeneticMaster
       end
 
       def domains_mask
-        ENV.fetch('DOMAINS_MASK', '32')
+        get_setting('domains_mask', default: ENV.fetch('DOMAINS_MASK', '32'))
       end
 
       def minimize_mode?

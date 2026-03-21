@@ -244,6 +244,7 @@ export const apiService = {
     keenetic_password?: string;
     keenetic_host?: string;
     keenetic_vpn_interface?: string;
+    domains_mask?: string;
   }): Promise<any> => {
     const response = await api.put('/api/settings', settings);
     return response.data;

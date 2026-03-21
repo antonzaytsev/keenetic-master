@@ -306,7 +306,7 @@ class KeeneticMaster
 
     def resolve_domain_to_routes(domain_string, group, interfaces)
       routes = []
-      domain_mask = group.mask || ENV.fetch('DOMAINS_MASK', '32').to_s
+      domain_mask = group.mask || Configuration.domains_mask
       seen_routes = Set.new
 
       if domain_string =~ /^\d+\.\d+\.\d+\.\d+(?:\/\d+)?$/ || domain_string =~ /^\d+\.\d+\.\d+\.\d+$/

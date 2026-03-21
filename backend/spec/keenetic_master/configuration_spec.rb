@@ -48,16 +48,36 @@ RSpec.describe KeeneticMaster::Configuration do
   end
 
   describe '.domains_mask' do
-    context 'when DOMAINS_MASK is set' do
-      before { ENV['DOMAINS_MASK'] = '24' }
+    context 'when domains_mask is set in database' do
+      before { Setting.set('domains_mask', '24') }
+      after { Setting.find(key: 'domains_mask')&.destroy }
+
+      it 'returns the database value' do
+        expect(described_class.domains_mask).to eq('24')
+      end
+
+      it 'takes priority over ENV' do
+        ENV['DOMAINS_MASK'] = '16'
+        expect(described_class.domains_mask).to eq('24')
+        ENV.delete('DOMAINS_MASK')
+      end
+    end
+
+    context 'when DOMAINS_MASK env is set but database is not' do
+      before do
+        Setting.find(key: 'domains_mask')&.destroy
+        ENV['DOMAINS_MASK'] = '24'
+      end
       after { ENV.delete('DOMAINS_MASK') }
 
-      it 'returns the configured mask' do
+      it 'falls back to ENV value' do
         expect(described_class.domains_mask).to eq('24')
       end
     end
 
-    context 'when DOMAINS_MASK is not set' do
+    context 'when neither database nor ENV is set' do
+      before { Setting.find(key: 'domains_mask')&.destroy }
+
       it 'returns default mask' do
         expect(described_class.domains_mask).to eq('32')
       end

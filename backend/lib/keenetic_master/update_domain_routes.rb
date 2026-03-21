@@ -51,7 +51,7 @@ class KeeneticMaster
       group = DomainGroup.find(name: website)
       return [] unless group
 
-      domain_mask = group.mask || ENV.fetch('DOMAINS_MASK', '32').to_s
+      domain_mask = group.mask || Configuration.domains_mask
       interface = group.interfaces || interface.presence || Configuration.vpn_interface
 
       # Regular domains are no longer supported - only DNS monitored domains

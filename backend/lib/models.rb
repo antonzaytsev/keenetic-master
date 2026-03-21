@@ -110,13 +110,15 @@ class Setting < Sequel::Model(:settings)
     keenetic_password
     keenetic_host
     keenetic_vpn_interface
+    domains_mask
   ].freeze
 
   SETTING_DESCRIPTIONS = {
     'keenetic_login' => 'Keenetic router login username',
     'keenetic_password' => 'Keenetic router login password',
     'keenetic_host' => 'Keenetic router host address (e.g., 192.168.1.1)',
-    'keenetic_vpn_interface' => 'Default VPN interface for routing (e.g., Wireguard0)'
+    'keenetic_vpn_interface' => 'Default VPN interface for routing (e.g., Wireguard0)',
+    'domains_mask' => 'Default network mask for IP routes (e.g., 24 for /24, 32 for /32)'
   }.freeze
 
   def before_update

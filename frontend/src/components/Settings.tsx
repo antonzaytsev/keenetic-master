@@ -14,6 +14,7 @@ interface SettingsData {
   keenetic_password: SettingValue;
   keenetic_host: SettingValue;
   keenetic_vpn_interface: SettingValue;
+  domains_mask: SettingValue;
 }
 
 interface RouterInterface {
@@ -37,14 +38,16 @@ const Settings: React.FC = () => {
     keenetic_login: '',
     keenetic_password: '',
     keenetic_host: '',
-    keenetic_vpn_interface: ''
+    keenetic_vpn_interface: '',
+    domains_mask: ''
   });
 
   const [originalData, setOriginalData] = useState({
     keenetic_login: '',
     keenetic_password: '',
     keenetic_host: '',
-    keenetic_vpn_interface: ''
+    keenetic_vpn_interface: '',
+    domains_mask: ''
   });
 
   useEffect(() => {
@@ -81,7 +84,8 @@ const Settings: React.FC = () => {
         keenetic_login: settings.keenetic_login?.value || '',
         keenetic_password: settings.keenetic_password?.value || '',
         keenetic_host: settings.keenetic_host?.value || '',
-        keenetic_vpn_interface: settings.keenetic_vpn_interface?.value || ''
+        keenetic_vpn_interface: settings.keenetic_vpn_interface?.value || '',
+        domains_mask: settings.domains_mask?.value || ''
       };
       
       setFormData(newFormData);
@@ -293,6 +297,33 @@ const Settings: React.FC = () => {
                     {interfaces.length > 0 
                       ? `${interfaces.length} interfaces available. Select the default VPN interface for routing.`
                       : 'Click refresh to load interfaces from router.'}
+                  </Form.Text>
+                </Form.Group>
+
+                <Form.Group className="mb-4">
+                  <Form.Label>Default Route Mask</Form.Label>
+                  <Form.Select
+                    value={formData.domains_mask}
+                    onChange={(e) => handleInputChange('domains_mask', e.target.value)}
+                  >
+                    <option value="">Default (32 — single host)</option>
+                    <option value="24">/24 (255.255.255.0)</option>
+                    <option value="25">/25 (255.255.255.128)</option>
+                    <option value="26">/26 (255.255.255.192)</option>
+                    <option value="27">/27 (255.255.255.224)</option>
+                    <option value="28">/28 (255.255.255.240)</option>
+                    <option value="29">/29 (255.255.255.248)</option>
+                    <option value="30">/30 (255.255.255.252)</option>
+                    <option value="31">/31 (255.255.255.254)</option>
+                    <option value="32">/32 (255.255.255.255 — single host)</option>
+                    <option value="22">/22 (255.255.252.0)</option>
+                    <option value="21">/21 (255.255.248.0)</option>
+                    <option value="20">/20 (255.255.240.0)</option>
+                    <option value="16">/16 (255.255.0.0)</option>
+                  </Form.Select>
+                  <Form.Text className="text-muted">
+                    Default network mask applied to resolved IP routes when a group has no per-group mask override.
+                    /32 routes each IP individually; /24 routes the entire subnet.
                   </Form.Text>
                 </Form.Group>
 
