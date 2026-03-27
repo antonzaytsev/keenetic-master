@@ -172,6 +172,7 @@ class KeeneticMaster
             name: group.name,
             mask: group.mask,
             interfaces: group.interfaces,
+            enabled: group.enabled != false,
             domains: domains_hash,
             statistics: {
               total_domains: group.domains_dataset.where(type: 'follow_dns').count,
