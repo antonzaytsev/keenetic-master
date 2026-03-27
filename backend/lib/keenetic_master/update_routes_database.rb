@@ -24,6 +24,11 @@ class KeeneticMaster
         return Failure(message: "Domain group '#{group_name}' not found")
       end
 
+      if group.enabled == false
+        @logger.info("Skipping disabled group '#{group_name}'")
+        return Success(group: group_name, added: 0, deleted: 0, message: "Group '#{group_name}' is disabled, skipped")
+      end
+
       begin
         result = @routes_manager.push_group_routes!(group)
         
@@ -62,6 +67,8 @@ class KeeneticMaster
       }
 
       DomainGroup.all.each do |group|
+        next if group.enabled == false
+
         begin
           result = call(group.name)
           
