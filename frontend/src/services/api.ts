@@ -32,6 +32,7 @@ export interface DomainGroup {
   name: string;
   mask?: string;
   interfaces?: string;
+  enabled: boolean;
   domains: any;
   statistics: {
     total_domains: number;
@@ -119,6 +120,11 @@ export const apiService = {
 
   updateDomainGroupById: async (id: number, data: { name?: string; mask?: string; interfaces?: string }): Promise<any> => {
     const response = await api.put(`/api/domain-groups/${id}`, data);
+    return response.data;
+  },
+
+  toggleDomainGroup: async (id: number, enabled: boolean): Promise<any> => {
+    const response = await api.put(`/api/domain-groups/${id}`, { enabled });
     return response.data;
   },
 

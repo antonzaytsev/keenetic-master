@@ -229,6 +229,7 @@ class KeeneticMaster
 
       # Find domain groups that have follow_dns domains
       DomainGroup.all.each do |group|
+        next if group.enabled == false
         follow_dns_domains = group.domains_dataset.where(type: 'follow_dns').map(:domain)
         next if follow_dns_domains.empty?
 
