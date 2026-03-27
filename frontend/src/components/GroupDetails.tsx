@@ -491,19 +491,20 @@ const GroupDetails: React.FC = () => {
   const handleToggleEnabled = async () => {
     if (!group) return;
     setTogglingEnabled(true);
+    const newEnabled = group.enabled !== false ? false : true;
+    // Optimistically update local state
+    setGroup({ ...group, enabled: newEnabled });
     try {
-      await apiService.toggleDomainGroup(group.id, !group.enabled);
+      await apiService.toggleDomainGroup(group.id, newEnabled);
       showNotification(
         'success',
-        group.enabled !== false
-          ? `Group "${group.name}" disabled. Router routes deleted.`
-          : `Group "${group.name}" enabled.`
+        newEnabled
+          ? `Group "${group.name}" enabled.`
+          : `Group "${group.name}" disabled. Router routes deleted.`
       );
-      // Reload group data to reflect new state
-      const allGroups = await apiService.getDomainGroups();
-      const updated = allGroups.find(g => g.name === group.name);
-      if (updated) setGroup(updated);
     } catch (err) {
+      // Revert on failure
+      setGroup({ ...group, enabled: !newEnabled });
       const errorMessage = err instanceof Error ? err.message : String(err);
       showNotification('error', `Failed to toggle group: ${errorMessage}`);
     } finally {

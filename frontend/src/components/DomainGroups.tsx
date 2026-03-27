@@ -159,22 +159,26 @@ const DomainGroups: React.FC = () => {
 
   const handleToggleEnabled = useCallback(async (group: DomainGroup) => {
     setTogglingGroup(group.id);
+    const newEnabled = !group.enabled;
+    // Optimistically update the local state
+    setDomainGroups(prev => prev.map(g => g.id === group.id ? { ...g, enabled: newEnabled } : g));
     try {
-      await apiService.toggleDomainGroup(group.id, !group.enabled);
+      await apiService.toggleDomainGroup(group.id, newEnabled);
       showNotification(
         'success',
-        group.enabled
-          ? `Group "${group.name}" disabled. Router routes deleted.`
-          : `Group "${group.name}" enabled.`
+        newEnabled
+          ? `Group "${group.name}" enabled.`
+          : `Group "${group.name}" disabled. Router routes deleted.`
       );
-      await loadDomainGroups();
     } catch (err) {
+      // Revert on failure
+      setDomainGroups(prev => prev.map(g => g.id === group.id ? { ...g, enabled: group.enabled } : g));
       const errorMessage = err instanceof Error ? err.message : String(err);
       showNotification('error', `Failed to toggle group: ${errorMessage}`);
     } finally {
       setTogglingGroup(null);
     }
-  }, [loadDomainGroups, showNotification]);
+  }, [showNotification]);
 
   const clearSearch = () => {
     setSearchTerm('');
