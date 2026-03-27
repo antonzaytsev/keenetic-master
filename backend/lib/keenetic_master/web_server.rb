@@ -332,8 +332,8 @@ class KeeneticMaster
                   { network: r[:network] || r[:dest], mask: r[:mask] || r[:genmask] || '255.255.255.255', comment: r[:comment] }
                 end
                 delete_result = DeleteRoutes.call(routes_to_delete)
-                routes_deleted = group_routes.size
                 if delete_result.success?
+                  routes_deleted = group_routes.size
                   logger.info("Deleted #{routes_deleted} routes from router for disabled group '#{group.name}'")
                 else
                   logger.warn("Failed to delete routes for disabled group '#{group.name}': #{delete_result.failure}")
