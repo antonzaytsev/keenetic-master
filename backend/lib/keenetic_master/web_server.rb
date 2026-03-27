@@ -312,6 +312,42 @@ class KeeneticMaster
           end
         end
 
+        # Handle enabled toggle
+        routes_deleted = nil
+        if request_body.key?('enabled')
+          new_enabled = request_body['enabled'] != false
+          was_enabled = group.enabled != false
+
+          if was_enabled && !new_enabled
+            # Disabling: delete this group's routes from the router
+            router_routes_result = GetAllRoutes.new.call
+            if router_routes_result.success?
+              comment_pattern = /\[auto:#{Regexp.escape(group.name)}\]/
+              group_routes = router_routes_result.value!.select do |route|
+                comment_pattern.match?(route[:comment] || '')
+              end
+
+              if group_routes.any?
+                routes_to_delete = group_routes.map do |r|
+                  { network: r[:network] || r[:dest], mask: r[:mask] || r[:genmask] || '255.255.255.255', comment: r[:comment] }
+                end
+                delete_result = DeleteRoutes.call(routes_to_delete)
+                routes_deleted = group_routes.size
+                if delete_result.success?
+                  logger.info("Deleted #{routes_deleted} routes from router for disabled group '#{group.name}'")
+                else
+                  logger.warn("Failed to delete routes for disabled group '#{group.name}': #{delete_result.failure}")
+                end
+              end
+            else
+              logger.warn("Could not fetch router routes when disabling group '#{group.name}'")
+            end
+          end
+
+          group.update(enabled: new_enabled)
+          logger.info("Domain group #{group_id} enabled set to #{new_enabled}")
+        end
+
         # If interface changed, push routes to router to update them with new interface
         push_result = nil
         if interface_changed
@@ -329,6 +365,7 @@ class KeeneticMaster
         end
 
         response_data = { success: true, message: "Domain group updated successfully" }
+        response_data[:routes_deleted] = routes_deleted if routes_deleted
         if interface_changed && push_result
           if push_result.success?
             response_data[:routes_updated] = push_result.value!
