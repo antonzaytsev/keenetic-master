@@ -43,7 +43,8 @@ class Database
       create_domains_table unless @db.tables.include?(:domains)
       create_dns_processing_log_table unless @db.tables.include?(:dns_processing_log)
       create_settings_table unless @db.tables.include?(:settings)
-      
+      add_enabled_column_to_groups
+
       # Drop routes and sync_log tables if they exist (no longer needed - routes stored on Keenetic)
       @db.drop_table(:routes) if @db.tables.include?(:routes)
       @db.drop_table(:sync_log) if @db.tables.include?(:sync_log)
@@ -112,11 +113,21 @@ class Database
         String :description
         DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
         DateTime :updated_at, default: Sequel::CURRENT_TIMESTAMP
-        
+
         index :key
       end
     rescue => e
       puts "Warning: Could not create settings table: #{e.message}"
+      raise e unless e.message.include?('already exists')
+    end
+
+    def add_enabled_column_to_groups
+      return if @db[:domain_groups].columns.include?(:enabled)
+      @db.alter_table(:domain_groups) do
+        add_column :enabled, TrueClass, default: true, null: false
+      end
+    rescue => e
+      puts "Warning: Could not add enabled column to domain_groups: #{e.message}"
       raise e unless e.message.include?('already exists')
     end
 
