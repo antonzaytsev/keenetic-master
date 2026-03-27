@@ -34,6 +34,7 @@ const GroupDetails: React.FC = () => {
   const [deletingRoutes, setDeletingRoutes] = useState(false);
   const [pushingRoutes, setPushingRoutes] = useState(false);
   const [deletingWrongInterfaceRoutes, setDeletingWrongInterfaceRoutes] = useState(false);
+  const [togglingEnabled, setTogglingEnabled] = useState(false);
 
   useEffect(() => {
     const loadGroupDetails = async () => {
@@ -484,6 +485,29 @@ const GroupDetails: React.FC = () => {
     }
   };
 
+  const handleToggleEnabled = async () => {
+    if (!group) return;
+    setTogglingEnabled(true);
+    try {
+      await apiService.toggleDomainGroup(group.id, !group.enabled);
+      showNotification(
+        'success',
+        group.enabled !== false
+          ? `Group "${group.name}" disabled. Router routes deleted.`
+          : `Group "${group.name}" enabled.`
+      );
+      // Reload group data to reflect new state
+      const allGroups = await apiService.getDomainGroups();
+      const updated = allGroups.find(g => g.name === group.name);
+      if (updated) setGroup(updated);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      showNotification('error', `Failed to toggle group: ${errorMessage}`);
+    } finally {
+      setTogglingEnabled(false);
+    }
+  };
+
   const handleDeleteWrongInterfaceRoutes = async () => {
     if (!groupName) return;
 
@@ -616,7 +640,16 @@ const GroupDetails: React.FC = () => {
                 </h1>
               )}
             </div>
-            <div>
+            <div className="d-flex align-items-center">
+              <Form.Check
+                type="switch"
+                id="toggle-group-enabled"
+                checked={group.enabled !== false}
+                disabled={togglingEnabled}
+                onChange={handleToggleEnabled}
+                label={group.enabled !== false ? 'Enabled' : 'Disabled'}
+                className="me-2"
+              />
               <Link to="/" className="btn btn-outline-secondary me-2">
                 <i className="fas fa-arrow-left me-1"></i>
                 Back to Groups
