@@ -17,6 +17,7 @@ const DomainGroups: React.FC = () => {
   const [showDeleteAutoModal, setShowDeleteAutoModal] = useState(false);
   const [deletingAutoRoutes, setDeletingAutoRoutes] = useState(false);
   const [routerInterfaces, setRouterInterfaces] = useState<Array<{ id: string; description: string; name: string }>>([]);
+  const [togglingGroup, setTogglingGroup] = useState<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTermRef = useRef<string>('');
 
@@ -156,6 +157,25 @@ const DomainGroups: React.FC = () => {
     setGroupToDelete(null);
   };
 
+  const handleToggleEnabled = useCallback(async (group: DomainGroup) => {
+    setTogglingGroup(group.id);
+    try {
+      await apiService.toggleDomainGroup(group.id, !group.enabled);
+      showNotification(
+        'success',
+        group.enabled
+          ? `Group "${group.name}" disabled. Router routes deleted.`
+          : `Group "${group.name}" enabled.`
+      );
+      await loadDomainGroups();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      showNotification('error', `Failed to toggle group: ${errorMessage}`);
+    } finally {
+      setTogglingGroup(null);
+    }
+  }, [loadDomainGroups, showNotification]);
+
   const clearSearch = () => {
     setSearchTerm('');
   };
@@ -292,12 +312,16 @@ const DomainGroups: React.FC = () => {
                         <th>IP Routes</th>
                         <th>Interface</th>
                         <th>Last Updated</th>
+                        <th>Status</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(Array.isArray(filteredGroups) ? filteredGroups : []).map((group) => (
-                        <tr key={group.id}>
+                        <tr
+                          key={group.id}
+                          style={group.enabled === false ? { opacity: 0.5 } : undefined}
+                        >
                           <td>
                             <Link
                               to={`/groups/${group.name}`}
@@ -347,6 +371,17 @@ const DomainGroups: React.FC = () => {
                             ) : (
                               <span className="text-muted">-</span>
                             )}
+                          </td>
+                          <td>
+                            <Form.Check
+                              type="switch"
+                              id={`toggle-${group.id}`}
+                              checked={group.enabled !== false}
+                              disabled={togglingGroup === group.id}
+                              onChange={() => handleToggleEnabled(group)}
+                              label=""
+                              title={group.enabled !== false ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+                            />
                           </td>
                           <td>
                             <div className="btn-group">
