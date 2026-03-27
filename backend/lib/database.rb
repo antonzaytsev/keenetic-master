@@ -43,7 +43,7 @@ class Database
       create_domains_table unless @db.tables.include?(:domains)
       create_dns_processing_log_table unless @db.tables.include?(:dns_processing_log)
       create_settings_table unless @db.tables.include?(:settings)
-      add_enabled_column_to_groups
+      add_enabled_column_to_groups if @db.tables.include?(:domain_groups)
 
       # Drop routes and sync_log tables if they exist (no longer needed - routes stored on Keenetic)
       @db.drop_table(:routes) if @db.tables.include?(:routes)
