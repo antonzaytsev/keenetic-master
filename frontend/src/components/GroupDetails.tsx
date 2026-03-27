@@ -55,6 +55,7 @@ const GroupDetails: React.FC = () => {
           const convertedGroup: DomainGroup = {
             id: 0, // We don't have the ID from this API
             name: groupName,
+            enabled: true,
             mask: individualGroupData.settings?.mask || null,
             interfaces: individualGroupData.settings?.interfaces || null,
             domains: individualGroupData,
@@ -372,6 +373,7 @@ const GroupDetails: React.FC = () => {
         const convertedGroup: DomainGroup = {
           id: group.id,
           name: group.name,
+          enabled: group.enabled,
           mask: individualGroupData.settings?.mask || null,
           interfaces: individualGroupData.settings?.interfaces || null,
           domains: individualGroupData,
@@ -421,6 +423,7 @@ const GroupDetails: React.FC = () => {
         const convertedGroup: DomainGroup = {
           id: group.id,
           name: group.name,
+          enabled: group.enabled,
           mask: individualGroupData.settings?.mask || null,
           interfaces: individualGroupData.settings?.interfaces || null,
           domains: individualGroupData,
